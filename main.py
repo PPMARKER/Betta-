@@ -53,6 +53,17 @@ try:
 except:
     original_fish_img = None
 
+# --- โหลดภาพของตกแต่ง ---
+decoration_assets = {}
+for i in range(1, 9):
+    key = f"Build_{i}"
+    try:
+        path = os.path.join("asset", "build", f"{key}.png")
+        img = pygame.image.load(path).convert_alpha()
+        decoration_assets[key] = pygame.transform.scale(img, (150, 150))
+    except:
+        decoration_assets[key] = None
+
 quarantine_rect = pygame.Rect(SCREEN_WIDTH // 2 - 150, 710, 300, 180)
 trash_rect = pygame.Rect(SCREEN_WIDTH - 130, 650, 100, 100)  # ถังขยะมุมขวาล่าง
 
@@ -136,7 +147,30 @@ class Food:
 foods = []
 
 
-# --- 4. คลาสสำหรับปุ่ม UI ---
+# --- 4. คลาสสำหรับของตกแต่ง ---
+class Decoration:
+    def __init__(self, x, y, img_key):
+        self.x = x
+        self.y = y
+        self.img_key = img_key
+        self.image = decoration_assets.get(img_key)
+        self.rect = pygame.Rect(x, y, 150, 150)
+
+    def draw(self, surface):
+        if self.image:
+            surface.blit(self.image, (self.x, self.y))
+        else:
+            # Placeholder ถ้าไม่มีรูป
+            pygame.draw.rect(surface, (100, 100, 100), self.rect, border_radius=10)
+            font = pygame.font.SysFont("Arial", 14)
+            txt = font.render(self.img_key, True, COLOR_WHITE)
+            surface.blit(txt, (self.x + 10, self.y + 60))
+
+
+decorations = []
+
+
+# --- 5. คลาสสำหรับปุ่ม UI ---
 class UIButton:
     def __init__(self, x, y, w, h, text, color=COLOR_BTN_NORMAL):
         self.rect = pygame.Rect(x, y, w, h)
@@ -415,12 +449,13 @@ def draw_fish_popup(surface, fish, mouse_pos):
     pygame.draw.rect(surface, (255, 165, 0), (popup_rect.x + 50, popup_rect.y + 57, 95 * (fish.hunger / 100), 10))
 
 
-# --- 6. ระบบ UI & Gameplay ---
+# --- 7. ระบบ UI & Gameplay ---
 my_fishes = [Fish(), Fish()]
 
 show_shop = False
 show_supplies = False
-shop_rect = pygame.Rect(SCREEN_WIDTH // 2 - 350, SCREEN_HEIGHT // 2 - 200, 700, 450)
+shop_tab = "supplies"  # "supplies" หรือ "decorations"
+shop_rect = pygame.Rect(SCREEN_WIDTH // 2 - 350, SCREEN_HEIGHT // 2 - 250, 700, 520)
 supplies_rect = pygame.Rect(SCREEN_WIDTH // 2 - 350, SCREEN_HEIGHT // 2 - 250, 700, 500)
 
 shop_items = [
@@ -428,6 +463,12 @@ shop_items = [
     {"name": "Moina", "price": 100, "qty": 20, "color": COLOR_FOOD_MOINA, "type": "food_m"},
     {"name": "Medicine", "price": 100, "qty": 10, "color": (50, 255, 50), "type": "med"}
 ]
+
+decoration_shop_items = [
+    {"name": f"Decor {i}", "price": 200, "key": f"Build_{i}"} for i in range(1, 9)
+]
+
+active_placement_item = None
 
 quick_slots = [pygame.Rect(20 + i * 85, 15, 75, 75) for i in range(3)]
 selected_slot = -1
@@ -455,7 +496,7 @@ bottom_buttons = [
 
 dragging_fish = None
 
-# --- 7. Main Loop ---
+# --- 8. Main Loop ---
 running = True
 while running:
     mouse_pos = pygame.mouse.get_pos()
@@ -468,14 +509,50 @@ while running:
             if event.button == 1:
                 clicked_ui = False
 
-                if show_shop:
+                if active_placement_item:
+                    # วางของตกแต่ง
+                    if not any(btn.rect.collidepoint(mouse_pos) for btn in bottom_buttons + top_buttons):
+                        # หาค่าราคาสินค้าจากกุญแจ
+                        price = 200
+                        for item in decoration_shop_items:
+                            if item["key"] == active_placement_item:
+                                price = item["price"]
+                                break
+
+                        if player_gold >= price:
+                            player_gold -= price
+                            decorations.append(Decoration(mouse_pos[0] - 75, mouse_pos[1] - 75, active_placement_item))
+                            active_placement_item = None
+                            clicked_ui = True
+
+                if not clicked_ui and show_shop:
                     if shop_rect.collidepoint(mouse_pos):
-                        for i, item in enumerate(shop_items):
-                            btn_rect = pygame.Rect(shop_rect.x + 30 + (i * 220), shop_rect.y + 100, 200, 280)
-                            if btn_rect.collidepoint(mouse_pos):
-                                if player_gold >= item["price"]:
-                                    player_gold -= item["price"]
-                                    inventory[item["type"]]["qty"] += item["qty"]
+                        # ปุ่มสลับ Tab
+                        tab_supplies_rect = pygame.Rect(shop_rect.x + 400, shop_rect.y + 30, 120, 40)
+                        tab_decor_rect = pygame.Rect(shop_rect.x + 530, shop_rect.y + 30, 130, 40)
+
+                        if tab_supplies_rect.collidepoint(mouse_pos):
+                            shop_tab = "supplies"
+                        elif tab_decor_rect.collidepoint(mouse_pos):
+                            shop_tab = "decorations"
+
+                        if shop_tab == "supplies":
+                            for i, item in enumerate(shop_items):
+                                btn_rect = pygame.Rect(shop_rect.x + 30 + (i * 220), shop_rect.y + 100, 200, 280)
+                                if btn_rect.collidepoint(mouse_pos):
+                                    if player_gold >= item["price"]:
+                                        player_gold -= item["price"]
+                                        inventory[item["type"]]["qty"] += item["qty"]
+                        else:
+                            # รายการของตกแต่ง (แสดง 2 แถว แถวละ 4)
+                            for i, item in enumerate(decoration_shop_items):
+                                row = i // 4
+                                col = i % 4
+                                btn_rect = pygame.Rect(shop_rect.x + 30 + (col * 165), shop_rect.y + 100 + (row * 190), 150, 170)
+                                if btn_rect.collidepoint(mouse_pos):
+                                    if player_gold >= item["price"]:
+                                        active_placement_item = item["key"]
+                                        show_shop = False
                     else:
                         show_shop = False
                     clicked_ui = True
@@ -546,6 +623,8 @@ while running:
                             hit_fish.is_dragging = True
 
             elif event.button == 3:
+                if active_placement_item:
+                    active_placement_item = None
                 if dragging_fish:
                     dragging_fish.x, dragging_fish.y = dragging_fish.original_pos
                     dragging_fish.is_dragging = False
@@ -602,6 +681,10 @@ while running:
         screen.blit(background, (0, 0))
     else:
         screen.fill(COLOR_DEEP_BLUE)
+
+    # วาดของตกแต่ง (ด้านหลังปลา)
+    for d in decorations:
+        d.draw(screen)
 
     for fish in my_fishes:
         if not fish.in_quarantine and not fish.is_dragging and not fish.is_dead: fish.draw(screen)
@@ -669,16 +752,46 @@ while running:
         pygame.draw.rect(screen, COLOR_WHITE, shop_rect, width=3, border_radius=25)
         title = pygame.font.SysFont("Tahoma", 32, bold=True).render("AQUARIUM SHOP", True, COLOR_GOLD)
         screen.blit(title, (shop_rect.x + 40, shop_rect.y + 30))
-        for i, item in enumerate(shop_items):
-            item_r = pygame.Rect(shop_rect.x + 30 + (i * 220), shop_rect.y + 100, 200, 280)
-            h = item_r.collidepoint(mouse_pos)
-            pygame.draw.rect(screen, (50, 90, 150) if h else (40, 70, 120), item_r, border_radius=15)
-            pygame.draw.rect(screen, COLOR_WHITE, item_r, width=2 if not h else 4, border_radius=15)
-            pygame.draw.circle(screen, item["color"], (item_r.centerx, item_r.y + 80), 40)
-            screen.blit(pygame.font.SysFont("Tahoma", 20, bold=True).render(item["name"], True, COLOR_WHITE),
-                        (item_r.x + 20, item_r.y + 140))
-            p_txt = pygame.font.SysFont("Tahoma", 22, bold=True).render(f"{item['price']}G", True, COLOR_GOLD)
-            screen.blit(p_txt, (item_r.centerx - p_txt.get_width() // 2, item_r.bottom - 40))
+
+        # วาดปุ่ม Tab
+        tab_supp_r = pygame.Rect(shop_rect.x + 400, shop_rect.y + 30, 120, 40)
+        tab_deco_r = pygame.Rect(shop_rect.x + 530, shop_rect.y + 30, 130, 40)
+        pygame.draw.rect(screen, (60, 120, 200) if shop_tab == "supplies" else (40, 70, 120), tab_supp_r, border_radius=10)
+        pygame.draw.rect(screen, (60, 120, 200) if shop_tab == "decorations" else (40, 70, 120), tab_deco_r, border_radius=10)
+        screen.blit(pygame.font.SysFont("Tahoma", 18, bold=True).render("Supplies", True, COLOR_WHITE), (tab_supp_r.x + 20, tab_supp_r.y + 8))
+        screen.blit(pygame.font.SysFont("Tahoma", 18, bold=True).render("Decorations", True, COLOR_WHITE), (tab_deco_r.x + 15, tab_deco_r.y + 8))
+
+        if shop_tab == "supplies":
+            for i, item in enumerate(shop_items):
+                item_r = pygame.Rect(shop_rect.x + 30 + (i * 220), shop_rect.y + 100, 200, 280)
+                h = item_r.collidepoint(mouse_pos)
+                pygame.draw.rect(screen, (50, 90, 150) if h else (40, 70, 120), item_r, border_radius=15)
+                pygame.draw.rect(screen, COLOR_WHITE, item_r, width=2 if not h else 4, border_radius=15)
+                pygame.draw.circle(screen, item["color"], (item_r.centerx, item_r.y + 80), 40)
+                screen.blit(pygame.font.SysFont("Tahoma", 20, bold=True).render(item["name"], True, COLOR_WHITE),
+                            (item_r.x + 20, item_r.y + 140))
+                p_txt = pygame.font.SysFont("Tahoma", 22, bold=True).render(f"{item['price']}G", True, COLOR_GOLD)
+                screen.blit(p_txt, (item_r.centerx - p_txt.get_width() // 2, item_r.bottom - 40))
+        else:
+            for i, item in enumerate(decoration_shop_items):
+                row = i // 4
+                col = i % 4
+                item_r = pygame.Rect(shop_rect.x + 30 + (col * 165), shop_rect.y + 100 + (row * 190), 150, 170)
+                h = item_r.collidepoint(mouse_pos)
+                pygame.draw.rect(screen, (50, 90, 150) if h else (40, 70, 120), item_r, border_radius=10)
+                pygame.draw.rect(screen, COLOR_WHITE, item_r, width=2 if not h else 4, border_radius=10)
+
+                # วาดรูปตัวอย่างของตกแต่ง
+                img = decoration_assets.get(item["key"])
+                if img:
+                    scaled_img = pygame.transform.scale(img, (80, 80))
+                    screen.blit(scaled_img, (item_r.centerx - 40, item_r.y + 10))
+                else:
+                    pygame.draw.rect(screen, (80, 80, 80), (item_r.centerx - 40, item_r.y + 10, 80, 80))
+
+                screen.blit(pygame.font.SysFont("Tahoma", 16, bold=True).render(item["name"], True, COLOR_WHITE), (item_r.x + 10, item_r.y + 100))
+                p_txt = pygame.font.SysFont("Tahoma", 18, bold=True).render(f"{item['price']}G", True, COLOR_GOLD)
+                screen.blit(p_txt, (item_r.centerx - p_txt.get_width() // 2, item_r.bottom - 25))
 
     if show_supplies:
         overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
