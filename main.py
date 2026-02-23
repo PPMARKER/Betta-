@@ -544,10 +544,6 @@ while running:
                             dragging_fish = hit_fish
                             dragging_fish.original_pos = (hit_fish.x, hit_fish.y)
                             hit_fish.is_dragging = True
-                        elif not quarantine_rect.collidepoint(mouse_pos):
-                            if player_gold >= 50:
-                                player_gold -= 50
-                                my_fishes.append(fish())
 
             elif event.button == 3:
                 if dragging_fish:
