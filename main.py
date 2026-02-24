@@ -196,6 +196,17 @@ class Fish:
         self.rect = pygame.Rect(self.x, self.y, self.size_w, self.size_h)
         self.last_color = None
 
+        # พรีเรนเดอร์เงาบนพื้น (Pre-render Floor Shadow) เพื่อประสิทธิภาพ
+        shadow_w = self.size_w * 0.8
+        shadow_h = self.size_h * 0.2
+        self.shadow_surf = pygame.Surface((shadow_w, shadow_h), pygame.SRCALPHA)
+        pygame.draw.ellipse(self.shadow_surf, (0, 0, 0, 70), (0, 0, shadow_w, shadow_h))
+
+        # พรีเรนเดอร์แสงเงาสำหรับ fallback ellipse
+        self.shading_fallback_surf = pygame.Surface((self.size_w, self.size_h), pygame.SRCALPHA)
+        pygame.draw.ellipse(self.shading_fallback_surf, (255, 255, 255, 80), (self.size_w // 5, self.size_h // 10, self.size_w // 2, self.size_h // 3))
+        pygame.draw.ellipse(self.shading_fallback_surf, (0, 0, 0, 60), (0, self.size_h // 2, self.size_w, self.size_h // 2))
+
     def update_stats(self):
         if self.is_dead:
             return
@@ -336,6 +347,11 @@ class Fish:
             self.y = max(100, min(680 - self.size_h, self.y))
 
     def draw(self, surface):
+        # 1. วาดเงาบนพื้น (Floor Shadow) โดยใช้เงาที่พรีเรนเดอร์ไว้
+        if not self.is_dragging:
+            shadow_y = 680 if not self.in_quarantine else quarantine_rect.bottom - 10
+            surface.blit(self.shadow_surf, (self.x + (self.size_w - self.shadow_surf.get_width()) // 2, shadow_y))
+
         target_color = self.base_color
 
         # เซ็ตสีจำลองเพื่อสั่งให้ระบบ Render ภาพใหม่ตอนตาย (ขาวดำ) หรือป่วย (สีซีด)
@@ -365,6 +381,14 @@ class Fish:
                     # ใส่สีตามปกติ / สีซีดลงตอนป่วย
                     temp_surface.fill(target_color, special_flags=pygame.BLEND_RGB_MULT)
 
+                # เพิ่มแสงและเงาให้ตัวปลา (Body Shading)
+                shading_overlay = pygame.Surface((self.size_w, self.size_h), pygame.SRCALPHA)
+                # แสงตกกระทบด้านบน (Highlight)
+                pygame.draw.ellipse(shading_overlay, (255, 255, 255, 60), (0, -self.size_h // 4, self.size_w, self.size_h // 2))
+                # เงาด้านล่าง (Shadow)
+                pygame.draw.ellipse(shading_overlay, (0, 0, 0, 60), (0, self.size_h // 2, self.size_w, self.size_h // 2))
+                temp_surface.blit(shading_overlay, (0, 0))
+
                 self.image_right = temp_surface.copy()
                 self.image_left = pygame.transform.flip(self.image_right, True, False)
 
@@ -381,6 +405,8 @@ class Fish:
         else:
             draw_color = (128, 128, 128) if self.is_dead else target_color
             pygame.draw.ellipse(surface, draw_color, self.rect)
+            # ใช้พรีเรนเดอร์ shading สำหรับวงรี
+            surface.blit(self.shading_fallback_surf, (self.x, self.y))
 
 
 # --- ฟังก์ชันวาด Popup ข้อมูลปลา ---
