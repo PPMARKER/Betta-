@@ -771,12 +771,14 @@ while running:
             if shop_page > 0:
                 pygame.draw.rect(screen, (40, 70, 120), prev_rect, border_radius=5)
                 pygame.draw.rect(screen, COLOR_WHITE, prev_rect, width=1, border_radius=5)
-                screen.blit(tab_font.render("<", True, COLOR_WHITE), tab_font.get_rect(center=prev_rect.center))
+                prev_txt = tab_font.render("<", True, COLOR_WHITE)
+                screen.blit(prev_txt, prev_txt.get_rect(center=prev_rect.center))
 
             if (shop_page + 1) * 3 < len(current_items):
                 pygame.draw.rect(screen, (40, 70, 120), next_rect, border_radius=5)
                 pygame.draw.rect(screen, COLOR_WHITE, next_rect, width=1, border_radius=5)
-                screen.blit(tab_font.render(">", True, COLOR_WHITE), tab_font.get_rect(center=next_rect.center))
+                next_txt = tab_font.render(">", True, COLOR_WHITE)
+                screen.blit(next_txt, next_txt.get_rect(center=next_rect.center))
 
     if show_supplies:
         overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
