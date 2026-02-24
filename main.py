@@ -465,8 +465,6 @@ shop_items = [
     {"name": "Build 8", "price": 550, "type": "decor", "img_path": "asset/build/Build_8.png"},
 ]
 
-is_build_mode = False
-selected_decor = None
 decor_inventory = []
 decor_objects = []
 
@@ -481,8 +479,7 @@ inventory = {
 quick_items = ["food_p", "food_m", "med"]
 
 btn_shop = UIButton(150, 820, 120, 50, "SHOP", color=COLOR_BTN_NORMAL)
-btn_supplies = UIButton(280, 820, 120, 50, "SUPPLIES")
-btn_build = UIButton(410, 820, 120, 50, "BUILD")
+btn_supplies = UIButton(280, 820, 120, 50, "INVENTORY")
 top_buttons = [
     UIButton(1050, 20, 120, 45, "More Tank"),
     UIButton(1180, 20, 120, 45, "Sell Tank"),
@@ -492,11 +489,12 @@ bottom_buttons = [
     UIButton(20, 820, 120, 50, "MENU"),
     btn_shop,
     btn_supplies,
-    btn_build,
-    UIButton(540, 820, 120, 50, "SPECIES")
+    UIButton(410, 820, 120, 50, "SPECIES")
 ]
 
 dragging_fish = None
+dragging_decor = None
+supplies_tab = "Supplies"
 
 # --- 7. Main Loop ---
 running = True
@@ -553,21 +551,55 @@ while running:
 
                 elif show_supplies:
                     if supplies_rect.collidepoint(mouse_pos):
+                        # Tabs
+                        tab_s = pygame.Rect(supplies_rect.x + 30, supplies_rect.y + 75, 180, 30)
+                        tab_d = pygame.Rect(supplies_rect.x + 220, supplies_rect.y + 75, 180, 30)
+                        if tab_s.collidepoint(mouse_pos):
+                            supplies_tab = "Supplies"
+                        elif tab_d.collidepoint(mouse_pos):
+                            supplies_tab = "Decorations"
+
                         y_offset = 120
-                        # Only show food and medicine
-                        for key, data in inventory.items():
-                            if data.get("type") not in ["food", "medicine"]: continue
-                            item_line = pygame.Rect(supplies_rect.x + 40, supplies_rect.y + y_offset, 620, 80)
-                            if item_line.collidepoint(mouse_pos):
-                                if key not in quick_items:
-                                    if None in quick_items:
-                                        quick_items[quick_items.index(None)] = key
-                                    else:
-                                        quick_items[0] = key
-                            y_offset += 100
+                        if supplies_tab == "Supplies":
+                            # Only show food and medicine
+                            for key, data in inventory.items():
+                                if data.get("type") not in ["food", "medicine"]: continue
+                                item_line = pygame.Rect(supplies_rect.x + 40, supplies_rect.y + y_offset, 620, 80)
+                                if item_line.collidepoint(mouse_pos):
+                                    if key not in quick_items:
+                                        if None in quick_items:
+                                            quick_items[quick_items.index(None)] = key
+                                        else:
+                                            quick_items[0] = key
+                                y_offset += 100
+                        else:
+                            # Show decorations
+                            for i, decor in enumerate(decor_inventory):
+                                item_line = pygame.Rect(supplies_rect.x + 40, supplies_rect.y + y_offset, 620, 80)
+                                if item_line.collidepoint(mouse_pos):
+                                    # Pick up decoration
+                                    dragging_decor = {
+                                        "original_img": decor["img"],
+                                        "img": decor["img"],
+                                        "scale": decor.get("scale", 1.0),
+                                        "x": mouse_pos[0],
+                                        "y": mouse_pos[1],
+                                        "name": decor["name"]
+                                    }
+                                    decor_inventory.pop(i)
+                                    show_supplies = False
+                                    break
+                                y_offset += 100
                     else:
                         show_supplies = False
                     clicked_ui = True
+
+                if not clicked_ui:
+                    if dragging_decor:
+                        # Drop decoration
+                        decor_objects.append(dragging_decor)
+                        dragging_decor = None
+                        clicked_ui = True
 
                 if not clicked_ui:
                     for i, slot in enumerate(quick_slots):
@@ -579,49 +611,18 @@ while running:
                     if btn_shop.rect.collidepoint(mouse_pos):
                         show_shop = True
                         show_supplies = False
-                        is_build_mode = False
                         clicked_ui = True
                     elif btn_supplies.rect.collidepoint(mouse_pos):
                         show_supplies = True
                         show_shop = False
-                        is_build_mode = False
-                        clicked_ui = True
-                    elif btn_build.rect.collidepoint(mouse_pos):
-                        is_build_mode = True
-                        show_shop = False
-                        show_supplies = False
                         clicked_ui = True
 
                 if not clicked_ui:
                     for btn in top_buttons + bottom_buttons:
                         if btn.rect.collidepoint(mouse_pos): clicked_ui = True
 
-                if not clicked_ui and is_build_mode:
-                    # Check if clicked on decor inventory UI
-                    decor_ui_rect = pygame.Rect(30, SCREEN_HEIGHT - 220, SCREEN_WIDTH - 60, 100)
-                    if decor_ui_rect.collidepoint(mouse_pos):
-                        for i, decor in enumerate(decor_inventory):
-                            decor_btn = pygame.Rect(40 + i * 110, SCREEN_HEIGHT - 210, 100, 80)
-                            if decor_btn.collidepoint(mouse_pos):
-                                selected_decor = decor
-                                break
-                        clicked_ui = True
-
                 if not clicked_ui:
-                    if is_build_mode and selected_decor:
-                        # Place decoration
-                        img_to_place = selected_decor["img"]
-                        scale_to_place = selected_decor.get("scale", 1.0)
-                        w, h = img_to_place.get_size()
-                        # Cache the scaled image upon placement for better performance
-                        scaled_img = pygame.transform.smoothscale(img_to_place, (int(w * scale_to_place), int(h * scale_to_place)))
-                        decor_objects.append({
-                            "img": scaled_img,
-                            "x": mouse_pos[0],
-                            "y": mouse_pos[1]
-                        })
-                        clicked_ui = True
-                    elif selected_slot != -1 and quick_items[selected_slot] is not None:
+                    if selected_slot != -1 and quick_items[selected_slot] is not None:
                         item_type = quick_items[selected_slot]
                         item_data = inventory[item_type]
                         if item_data["qty"] > 0:
@@ -648,10 +649,27 @@ while running:
                             dragging_fish = hit_fish
                             dragging_fish.original_pos = (hit_fish.x, hit_fish.y)
                             hit_fish.is_dragging = True
-                        elif not quarantine_rect.collidepoint(mouse_pos):
-                            if player_gold >= 50:
-                                player_gold -= 50
-                                my_fishes.append(fish())
+                        else:
+                            # Check decorations if no fish hit
+                            hit_decor = None
+                            for obj in reversed(decor_objects):
+                                rect = obj["img"].get_rect(midbottom=(obj["x"], obj["y"]))
+                                if rect.collidepoint(mouse_pos):
+                                    hit_decor = obj
+                                    break
+
+                            if hit_decor:
+                                dragging_decor = hit_decor
+                                decor_objects.remove(hit_decor)
+                                # Ensure it has original_img and scale for re-scaling
+                                if "original_img" not in dragging_decor:
+                                    # Fallback for old objects
+                                    dragging_decor["original_img"] = dragging_decor["img"]
+                                    dragging_decor["scale"] = 1.0
+                            elif not quarantine_rect.collidepoint(mouse_pos):
+                                if player_gold >= 50:
+                                    player_gold -= 50
+                                    my_fishes.append(fish())
 
             elif event.button == 3:
                 if dragging_fish:
@@ -671,17 +689,26 @@ while running:
             if event.key == pygame.K_3: selected_slot = 2
 
             if event.key == pygame.K_ESCAPE:
-                if is_build_mode:
-                    is_build_mode = False
-                    selected_decor = None
+                if dragging_decor:
+                    # Drop it where it is
+                    decor_objects.append(dragging_decor)
+                    dragging_decor = None
                 else:
                     selected_slot = -1
 
-            if is_build_mode and selected_decor:
+            if dragging_decor:
+                old_scale = dragging_decor.get("scale", 1.0)
                 if event.key == pygame.K_q:
-                    selected_decor["scale"] = max(0.1, selected_decor.get("scale", 1.0) - 0.1)
+                    dragging_decor["scale"] = max(0.1, old_scale - 0.1)
                 if event.key == pygame.K_e:
-                    selected_decor["scale"] = min(5.0, selected_decor.get("scale", 1.0) + 0.1)
+                    dragging_decor["scale"] = min(5.0, old_scale + 0.1)
+
+                if dragging_decor["scale"] != old_scale:
+                    # Re-scale
+                    orig = dragging_decor["original_img"]
+                    w, h = orig.get_size()
+                    s = dragging_decor["scale"]
+                    dragging_decor["img"] = pygame.transform.smoothscale(orig, (int(w * s), int(h * s)))
 
         if event.type == pygame.MOUSEBUTTONUP:
             if event.button == 1 and dragging_fish:
@@ -706,6 +733,9 @@ while running:
                     dragging_fish.size_h / 2)
         dragging_fish.rect.topleft = (dragging_fish.x, dragging_fish.y)
 
+    if dragging_decor:
+        dragging_decor["x"], dragging_decor["y"] = mouse_pos
+
     for fish in my_fishes:
         fish.update_stats()
         fish.move(my_fishes)
@@ -729,6 +759,14 @@ while running:
         img = obj["img"]
         rect = img.get_rect(midbottom=(obj["x"], obj["y"]))
         screen.blit(img, rect)
+
+    if dragging_decor:
+        img = dragging_decor["img"]
+        rect = img.get_rect(midbottom=(dragging_decor["x"], dragging_decor["y"]))
+        screen.blit(img, rect)
+        # UI Hint
+        hint_txt = pygame.font.SysFont("Tahoma", 16, bold=True).render("Q/E to Scale, Click to Place", True, COLOR_WHITE)
+        screen.blit(hint_txt, (SCREEN_WIDTH // 2 - hint_txt.get_width() // 2, 100))
 
     # 3. Fish & Food (Top Layer - but below UI)
     for f in foods: f.draw(screen)
@@ -776,41 +814,8 @@ while running:
             pygame.draw.circle(screen, inventory[active_key]["color"], mouse_pos, 8)
             pygame.draw.circle(screen, COLOR_WHITE, mouse_pos, 8, 2)
 
-    # Build Mode UI
-    if is_build_mode:
-        decor_ui_rect = pygame.Rect(30, SCREEN_HEIGHT - 220, SCREEN_WIDTH - 60, 100)
-        pygame.draw.rect(screen, (20, 40, 70, 200), decor_ui_rect, border_radius=15)
-        pygame.draw.rect(screen, COLOR_WHITE, decor_ui_rect, width=2, border_radius=15)
-
-        for i, decor in enumerate(decor_inventory):
-            decor_btn = pygame.Rect(40 + i * 110, SCREEN_HEIGHT - 210, 100, 80)
-            is_sel = (selected_decor == decor)
-            pygame.draw.rect(screen, (50, 100, 150) if is_sel else (30, 60, 100), decor_btn, border_radius=10)
-            if is_sel:
-                pygame.draw.rect(screen, COLOR_GOLD, decor_btn, width=3, border_radius=10)
-
-            # Draw preview
-            prev_img = pygame.transform.smoothscale(decor["img"], (60, 60))
-            screen.blit(prev_img, (decor_btn.centerx - 30, decor_btn.centery - 35))
-
-            name_txt = pygame.font.SysFont("Tahoma", 10).render(decor["name"], True, COLOR_WHITE)
-            screen.blit(name_txt, (decor_btn.x + 5, decor_btn.bottom - 15))
-
-        if selected_decor:
-            # Draw preview at mouse
-            img = selected_decor["img"]
-            scale = selected_decor.get("scale", 1.0)
-            w, h = img.get_size()
-            scaled_img = pygame.transform.smoothscale(img, (int(w * scale), int(h * scale)))
-            rect = scaled_img.get_rect(midbottom=mouse_pos)
-            screen.blit(scaled_img, rect)
-
-            # UI Hint
-            hint_txt = pygame.font.SysFont("Tahoma", 16, bold=True).render("Q/E to Scale, Click to Place, ESC to Exit", True, COLOR_WHITE)
-            screen.blit(hint_txt, (SCREEN_WIDTH // 2 - hint_txt.get_width() // 2, SCREEN_HEIGHT - 250))
-
     # Popup
-    if not show_shop and not show_supplies and not dragging_fish and not is_build_mode:
+    if not show_shop and not show_supplies and not dragging_fish and not dragging_decor:
         hovered_fish = None
         for fish in my_fishes:
             if fish.rect.collidepoint(mouse_pos) and not fish.is_dead:
@@ -873,19 +878,42 @@ while running:
         screen.blit(overlay, (0, 0))
         pygame.draw.rect(screen, (30, 45, 80), supplies_rect, border_radius=25)
         pygame.draw.rect(screen, COLOR_WHITE, supplies_rect, width=3, border_radius=25)
-        title = pygame.font.SysFont("Tahoma", 28, bold=True).render("YOUR SUPPLIES (Click to equip)", True, COLOR_WHITE)
+        title = pygame.font.SysFont("Tahoma", 28, bold=True).render("INVENTORY", True, COLOR_WHITE)
         screen.blit(title, (supplies_rect.x + 40, supplies_rect.y + 30))
+
+        # Tabs
+        tab_s = pygame.Rect(supplies_rect.x + 30, supplies_rect.y + 75, 180, 30)
+        tab_d = pygame.Rect(supplies_rect.x + 220, supplies_rect.y + 75, 180, 30)
+        pygame.draw.rect(screen, (50, 100, 180) if supplies_tab == "Supplies" else (30, 60, 120), tab_s, border_top_left_radius=10, border_top_right_radius=10)
+        pygame.draw.rect(screen, (50, 100, 180) if supplies_tab == "Decorations" else (30, 60, 120), tab_d, border_top_left_radius=10, border_top_right_radius=10)
+        screen.blit(pygame.font.SysFont("Tahoma", 16, bold=True).render("Supplies", True, COLOR_WHITE), (tab_s.x + 45, tab_s.y + 5))
+        screen.blit(pygame.font.SysFont("Tahoma", 16, bold=True).render("Decorations", True, COLOR_WHITE), (tab_d.x + 40, tab_d.y + 5))
+
         y_offset = 120
-        for key, data in inventory.items():
-            item_line = pygame.Rect(supplies_rect.x + 40, supplies_rect.y + y_offset, 620, 80)
-            h = item_line.collidepoint(mouse_pos)
-            pygame.draw.rect(screen, (70, 90, 130) if h else (50, 70, 110), item_line, border_radius=10)
-            pygame.draw.circle(screen, data["color"], (item_line.x + 50, item_line.centery), 25)
-            screen.blit(pygame.font.SysFont("Tahoma", 24, bold=True).render(data["name"], True, COLOR_WHITE),
-                        (item_line.x + 100, item_line.centery - 15))
-            screen.blit(pygame.font.SysFont("Tahoma", 24).render(f"{data['qty']} units", True, COLOR_GOLD),
-                        (item_line.right - 180, item_line.centery - 15))
-            y_offset += 100
+        if supplies_tab == "Supplies":
+            for key, data in inventory.items():
+                if data.get("type") not in ["food", "medicine"]: continue
+                item_line = pygame.Rect(supplies_rect.x + 40, supplies_rect.y + y_offset, 620, 80)
+                h = item_line.collidepoint(mouse_pos)
+                pygame.draw.rect(screen, (70, 90, 130) if h else (50, 70, 110), item_line, border_radius=10)
+                pygame.draw.circle(screen, data["color"], (item_line.x + 50, item_line.centery), 25)
+                screen.blit(pygame.font.SysFont("Tahoma", 24, bold=True).render(data["name"], True, COLOR_WHITE),
+                            (item_line.x + 100, item_line.centery - 15))
+                screen.blit(pygame.font.SysFont("Tahoma", 24).render(f"{data['qty']} units", True, COLOR_GOLD),
+                            (item_line.right - 180, item_line.centery - 15))
+                y_offset += 100
+        else:
+            for i, decor in enumerate(decor_inventory):
+                item_line = pygame.Rect(supplies_rect.x + 40, supplies_rect.y + y_offset, 620, 80)
+                h = item_line.collidepoint(mouse_pos)
+                pygame.draw.rect(screen, (70, 90, 130) if h else (50, 70, 110), item_line, border_radius=10)
+
+                prev_img = pygame.transform.smoothscale(decor["img"], (60, 60))
+                screen.blit(prev_img, (item_line.x + 20, item_line.y + 10))
+
+                screen.blit(pygame.font.SysFont("Tahoma", 24, bold=True).render(decor["name"], True, COLOR_WHITE),
+                            (item_line.x + 100, item_line.centery - 15))
+                y_offset += 100
 
     pygame.display.flip()
     clock.tick(60)
