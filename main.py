@@ -419,15 +419,39 @@ def draw_fish_popup(surface, fish, mouse_pos):
 my_fishes = [Fish(), Fish()]
 
 show_shop = False
+shop_category = "food"
+shop_page = 0
 show_supplies = False
 shop_rect = pygame.Rect(SCREEN_WIDTH // 2 - 350, SCREEN_HEIGHT // 2 - 200, 700, 450)
 supplies_rect = pygame.Rect(SCREEN_WIDTH // 2 - 350, SCREEN_HEIGHT // 2 - 250, 700, 500)
 
-shop_items = [
+shop_items_food = [
     {"name": "Pellets", "price": 50, "qty": 30, "color": COLOR_FOOD_PELLETS, "type": "food_p"},
     {"name": "Moina", "price": 100, "qty": 20, "color": COLOR_FOOD_MOINA, "type": "food_m"},
     {"name": "Medicine", "price": 100, "qty": 10, "color": (50, 255, 50), "type": "med"}
 ]
+
+shop_items_deco = []
+for i in range(1, 9):
+    shop_items_deco.append({
+        "name": f"Build {i}",
+        "price": 200,
+        "qty": 1,
+        "color": (150, 150, 150),
+        "type": f"deco_{i}",
+        "img_name": f"Build_{i}"
+    })
+
+decoration_images = {}
+for i in range(1, 9):
+    img_name = f"Build_{i}"
+    img_path = os.path.join("asset", "build", f"{img_name}.png")
+    try:
+        img = pygame.image.load(img_path).convert_alpha()
+        img = pygame.transform.scale(img, (100, 100))
+        decoration_images[img_name] = img
+    except:
+        decoration_images[img_name] = None
 
 quick_slots = [pygame.Rect(20 + i * 85, 15, 75, 75) for i in range(3)]
 selected_slot = -1
@@ -437,6 +461,8 @@ inventory = {
     "food_m": {"name": "Moina", "color": COLOR_FOOD_MOINA, "qty": 5},
     "med": {"name": "Medicine", "color": (50, 255, 50), "qty": 2}
 }
+for i in range(1, 9):
+    inventory[f"deco_{i}"] = {"name": f"Build {i}", "color": (150, 150, 150), "qty": 0}
 quick_items = ["food_p", "food_m", "med"]
 
 btn_shop = UIButton(150, 820, 120, 50, "SHOP", color=COLOR_BTN_NORMAL)
@@ -470,7 +496,31 @@ while running:
 
                 if show_shop:
                     if shop_rect.collidepoint(mouse_pos):
-                        for i, item in enumerate(shop_items):
+                        # Tabs interaction
+                        tab_food_rect = pygame.Rect(shop_rect.x + 40, shop_rect.y + 25, 220, 45)
+                        tab_deco_rect = pygame.Rect(shop_rect.x + 270, shop_rect.y + 25, 200, 45)
+
+                        if tab_food_rect.collidepoint(mouse_pos):
+                            shop_category = "food"
+                            shop_page = 0
+                        elif tab_deco_rect.collidepoint(mouse_pos):
+                            shop_category = "deco"
+                            shop_page = 0
+
+                        # Pagination interaction
+                        current_items = shop_items_food if shop_category == "food" else shop_items_deco
+                        if len(current_items) > 3:
+                            prev_rect = pygame.Rect(shop_rect.centerx - 60, shop_rect.bottom - 50, 50, 40)
+                            next_rect = pygame.Rect(shop_rect.centerx + 10, shop_rect.bottom - 50, 50, 40)
+                            if shop_page > 0 and prev_rect.collidepoint(mouse_pos):
+                                shop_page -= 1
+                            elif (shop_page + 1) * 3 < len(current_items) and next_rect.collidepoint(mouse_pos):
+                                shop_page += 1
+
+                        # Items interaction
+                        start_idx = shop_page * 3
+                        display_items = current_items[start_idx:start_idx+3]
+                        for i, item in enumerate(display_items):
                             btn_rect = pygame.Rect(shop_rect.x + 30 + (i * 220), shop_rect.y + 100, 200, 280)
                             if btn_rect.collidepoint(mouse_pos):
                                 if player_gold >= item["price"]:
@@ -671,18 +721,62 @@ while running:
         screen.blit(overlay, (0, 0))
         pygame.draw.rect(screen, (25, 55, 100), shop_rect, border_radius=25)
         pygame.draw.rect(screen, COLOR_WHITE, shop_rect, width=3, border_radius=25)
-        title = pygame.font.SysFont("Tahoma", 32, bold=True).render("AQUARIUM SHOP", True, COLOR_GOLD)
-        screen.blit(title, (shop_rect.x + 40, shop_rect.y + 30))
-        for i, item in enumerate(shop_items):
+
+        # Tabs
+        tab_food_rect = pygame.Rect(shop_rect.x + 40, shop_rect.y + 25, 220, 45)
+        tab_deco_rect = pygame.Rect(shop_rect.x + 270, shop_rect.y + 25, 200, 45)
+
+        pygame.draw.rect(screen, (60, 100, 160) if shop_category == "food" else (40, 70, 120), tab_food_rect, border_radius=10)
+        pygame.draw.rect(screen, (60, 100, 160) if shop_category == "deco" else (40, 70, 120), tab_deco_rect, border_radius=10)
+
+        if shop_category == "food":
+            pygame.draw.rect(screen, COLOR_WHITE, tab_food_rect, width=3, border_radius=10)
+        else:
+            pygame.draw.rect(screen, COLOR_WHITE, tab_deco_rect, width=3, border_radius=10)
+
+        tab_font = pygame.font.SysFont("Tahoma", 20, bold=True)
+        food_txt = tab_font.render("Food & Medicine", True, COLOR_WHITE)
+        deco_txt = tab_font.render("Decorations", True, COLOR_WHITE)
+        screen.blit(food_txt, food_txt.get_rect(center=tab_food_rect.center))
+        screen.blit(deco_txt, deco_txt.get_rect(center=tab_deco_rect.center))
+
+        # Filter items based on category and page
+        current_items = shop_items_food if shop_category == "food" else shop_items_deco
+        start_idx = shop_page * 3
+        display_items = current_items[start_idx:start_idx + 3]
+
+        for i, item in enumerate(display_items):
             item_r = pygame.Rect(shop_rect.x + 30 + (i * 220), shop_rect.y + 100, 200, 280)
             h = item_r.collidepoint(mouse_pos)
             pygame.draw.rect(screen, (50, 90, 150) if h else (40, 70, 120), item_r, border_radius=15)
             pygame.draw.rect(screen, COLOR_WHITE, item_r, width=2 if not h else 4, border_radius=15)
-            pygame.draw.circle(screen, item["color"], (item_r.centerx, item_r.y + 80), 40)
+
+            # Draw Item Image or Circle
+            if shop_category == "deco" and decoration_images.get(item.get("img_name")):
+                img = decoration_images[item["img_name"]]
+                screen.blit(img, img.get_rect(center=(item_r.centerx, item_r.y + 80)))
+            else:
+                pygame.draw.circle(screen, item["color"], (item_r.centerx, item_r.y + 80), 40)
+
             screen.blit(pygame.font.SysFont("Tahoma", 20, bold=True).render(item["name"], True, COLOR_WHITE),
                         (item_r.x + 20, item_r.y + 140))
             p_txt = pygame.font.SysFont("Tahoma", 22, bold=True).render(f"{item['price']}G", True, COLOR_GOLD)
             screen.blit(p_txt, (item_r.centerx - p_txt.get_width() // 2, item_r.bottom - 40))
+
+        # Pagination buttons
+        if len(current_items) > 3:
+            prev_rect = pygame.Rect(shop_rect.centerx - 60, shop_rect.bottom - 50, 50, 40)
+            next_rect = pygame.Rect(shop_rect.centerx + 10, shop_rect.bottom - 50, 50, 40)
+
+            if shop_page > 0:
+                pygame.draw.rect(screen, (40, 70, 120), prev_rect, border_radius=5)
+                pygame.draw.rect(screen, COLOR_WHITE, prev_rect, width=1, border_radius=5)
+                screen.blit(tab_font.render("<", True, COLOR_WHITE), tab_font.get_rect(center=prev_rect.center))
+
+            if (shop_page + 1) * 3 < len(current_items):
+                pygame.draw.rect(screen, (40, 70, 120), next_rect, border_radius=5)
+                pygame.draw.rect(screen, COLOR_WHITE, next_rect, width=1, border_radius=5)
+                screen.blit(tab_font.render(">", True, COLOR_WHITE), tab_font.get_rect(center=next_rect.center))
 
     if show_supplies:
         overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
