@@ -1,0 +1,14 @@
+# Code Changes in managers/tank_scene.py
+
+## Imports
+- Added COLOR_GOLD and COLOR_UI_BG to theme imports.
+
+## Updated draw_fish_popups
+- Updated popup size from (160, 90) to (210, 125).
+- Changed background to use COLOR_UI_BG.
+- Changed border to use COLOR_GOLD with border_radius=8.
+- Split "Age" and "Health Status" into separate lines.
+- Updated Health Status to "HEALTH: [STATUS]" with dynamic color.
+- Added "HP:" and "Hunger:" labels for stat bars.
+- Aligned both stat bars to the same X position (pr.x+85) and set width to 100.
+- Improved background bar colors for better visibility.

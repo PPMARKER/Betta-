@@ -1,0 +1,45 @@
+<<<<<<< SEARCH
+    def draw_fish_popups(self, surface):
+        if self.ui_manager.shop.visible or self.ui_manager.inventory.visible or self.dragging_fish or self.dragging_decor: return
+        mp = pygame.mouse.get_pos(); h = None
+        for f in self.fishes:
+            if f.rect.collidepoint(mp) and not f.is_dead: h = f; break
+        if h:
+            pw, ph = 160, 90; pr = pygame.Rect(mp[0]+15, mp[1]+15, pw, ph)
+            if pr.right > SCREEN_WIDTH: pr.x = mp[0]-pw-15
+            if pr.bottom > SCREEN_HEIGHT: pr.y = mp[1]-ph-15
+            bg = pygame.Surface((pw, ph), pygame.SRCALPHA); bg.fill((0,0,0,200)); surface.blit(bg, pr.topleft)
+            pygame.draw.rect(surface, (100,100,100), pr, 2)
+            fs = get_font("Tahoma", 14, bold=True)
+            surface.blit(fs.render(f"Age: {h.age} Days", True, COLOR_WHITE), (pr.x+10, pr.y+10))
+            sc = (255,50,50) if h.is_sick else (50,255,50)
+            surface.blit(fs.render("SICK" if h.is_sick else "HEALTHY", True, sc), (pr.right-70, pr.y+10))
+            pygame.draw.rect(surface, (100,0,0), (pr.x+35, pr.y+37, 110, 10))
+            pygame.draw.rect(surface, (0,255,0), (pr.x+35, pr.y+37, 110*(h.health/100), 10))
+            pygame.draw.rect(surface, (100,50,0), (pr.x+50, pr.y+57, 95, 10))
+            pygame.draw.rect(surface, (255,165,0), (pr.x+50, pr.y+57, 95*(h.hunger/100), 10))
+=======
+    def draw_fish_popups(self, surface):
+        if self.ui_manager.shop.visible or self.ui_manager.inventory.visible or self.dragging_fish or self.dragging_decor: return
+        mp = pygame.mouse.get_pos(); h = None
+        for f in self.fishes:
+            if f.rect.collidepoint(mp) and not f.is_dead: h = f; break
+        if h:
+            pw, ph = 210, 125; pr = pygame.Rect(mp[0]+15, mp[1]+15, pw, ph)
+            if pr.right > SCREEN_WIDTH: pr.x = mp[0]-pw-15
+            if pr.bottom > SCREEN_HEIGHT: pr.y = mp[1]-ph-15
+            bg = pygame.Surface((pw, ph), pygame.SRCALPHA); bg.fill(COLOR_UI_BG); surface.blit(bg, pr.topleft)
+            pygame.draw.rect(surface, COLOR_GOLD, pr, 2, border_radius=8)
+            fs = get_font("Tahoma", 14, bold=True)
+            surface.blit(fs.render(f"Age: {h.age} Days", True, COLOR_WHITE), (pr.x+12, pr.y+12))
+            sc = (255, 50, 50) if h.is_sick else (50, 255, 50)
+            st = fs.render("HEALTH: ", True, COLOR_WHITE)
+            surface.blit(st, (pr.x+12, pr.y+36))
+            surface.blit(fs.render("SICK" if h.is_sick else "HEALTHY", True, sc), (pr.x+12+st.get_width(), pr.y+36))
+            surface.blit(fs.render("HP:", True, COLOR_WHITE), (pr.x+12, pr.y+66))
+            pygame.draw.rect(surface, (80, 0, 0), (pr.x+85, pr.y+69, 100, 10))
+            pygame.draw.rect(surface, (0, 255, 0), (pr.x+85, pr.y+69, 100*(h.health/100), 10))
+            surface.blit(fs.render("Hunger:", True, COLOR_WHITE), (pr.x+12, pr.y+90))
+            pygame.draw.rect(surface, (80, 40, 0), (pr.x+85, pr.y+93, 100, 10))
+            pygame.draw.rect(surface, (255, 165, 0), (pr.x+85, pr.y+93, 100*(h.hunger/100), 10))
+>>>>>>> REPLACE
