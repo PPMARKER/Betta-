@@ -96,7 +96,7 @@ class TankScene(Scene):
             pw, ph = 210, 125; pr = pygame.Rect(mp[0]+15, mp[1]+15, pw, ph)
             if pr.right > SCREEN_WIDTH: pr.x = mp[0]-pw-15
             if pr.bottom > SCREEN_HEIGHT: pr.y = mp[1]-ph-15
-            bg = pygame.Surface((pw, ph), pygame.SRCALPHA); bg.fill(COLOR_UI_BG); surface.blit(bg, pr.topleft)
+            bg = pygame.Surface((pw, ph), pygame.SRCALPHA); pygame.draw.rect(bg, COLOR_UI_BG, (0, 0, pw, ph), border_radius=8); surface.blit(bg, pr.topleft)
             pygame.draw.rect(surface, COLOR_GOLD, pr, 2, border_radius=8)
             fs = get_font("Tahoma", 14, bold=True)
             surface.blit(fs.render(f"Age: {h.age} Days", True, COLOR_WHITE), (pr.x+12, pr.y+12))
