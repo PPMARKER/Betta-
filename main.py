@@ -196,16 +196,45 @@ class Fish:
         self.rect = pygame.Rect(self.x, self.y, self.size_w, self.size_h)
         self.last_color = None
 
-        # พรีเรนเดอร์เงาบนพื้น (Pre-render Floor Shadow) เพื่อประสิทธิภาพ
-        shadow_w = self.size_w * 0.8
-        shadow_h = self.size_h * 0.2
-        self.shadow_surf = pygame.Surface((shadow_w, shadow_h), pygame.SRCALPHA)
-        pygame.draw.ellipse(self.shadow_surf, (0, 0, 0, 70), (0, 0, shadow_w, shadow_h))
+        # พรีเรนเดอร์เงาบนพื้น (Pre-render Floor Shadow) - ปรับปรุงให้นุ่มนวลขึ้น
+        shadow_base_w = self.size_w * 0.8
+        shadow_base_h = self.size_h * 0.25
+        self.shadow_surf = pygame.Surface((shadow_base_w * 1.5, shadow_base_h * 1.5), pygame.SRCALPHA)
+        # วาดเงาซ้อนกันหลายชั้นเพื่อให้ขอบดูฟุ้ง
+        for i in range(3):
+            alpha = 40 - (i * 10)
+            s_w = shadow_base_w * (1.0 + i * 0.2)
+            s_h = shadow_base_h * (1.0 + i * 0.1)
+            pygame.draw.ellipse(self.shadow_surf, (0, 0, 0, alpha),
+                                ((self.shadow_surf.get_width() - s_w) // 2,
+                                 (self.shadow_surf.get_height() - s_h) // 2, s_w, s_h))
 
-        # พรีเรนเดอร์แสงเงาสำหรับ fallback ellipse
+        # พรีเรนเดอร์แสงเงาบนตัวปลาสำหรับ fallback ellipse - ให้ดูนุ่มนวลมีมิติมากขึ้น
         self.shading_fallback_surf = pygame.Surface((self.size_w, self.size_h), pygame.SRCALPHA)
-        pygame.draw.ellipse(self.shading_fallback_surf, (255, 255, 255, 80), (self.size_w // 5, self.size_h // 10, self.size_w // 2, self.size_h // 3))
-        pygame.draw.ellipse(self.shading_fallback_surf, (0, 0, 0, 60), (0, self.size_h // 2, self.size_w, self.size_h // 2))
+        # Highlight ด้านบน
+        for i in range(3):
+            h_w = self.size_w * (0.5 - i * 0.1)
+            h_h = self.size_h * (0.3 - i * 0.05)
+            pygame.draw.ellipse(self.shading_fallback_surf, (255, 255, 255, 30),
+                                (self.size_w // 4 + i * 5, self.size_h // 10, h_w, h_h))
+        # Shadow ด้านล่าง
+        for i in range(2):
+            s_h = self.size_h * (0.4 - i * 0.1)
+            pygame.draw.ellipse(self.shading_fallback_surf, (0, 0, 0, 40),
+                                (0, self.size_h - s_h, self.size_w, s_h))
+
+        # พรีเรนเดอร์ shading overlay สำหรับใช้กับภาพปลาจริง
+        self.shading_image_overlay = pygame.Surface((self.size_w, self.size_h), pygame.SRCALPHA)
+        # Highlight นุ่มๆ ด้านบน
+        for i in range(3):
+            alpha = 40 - (i * 10)
+            pygame.draw.ellipse(self.shading_image_overlay, (255, 255, 255, alpha),
+                                (0, -self.size_h // 3 + (i * 2), self.size_w, self.size_h // 1.5))
+        # Shadow นุ่มๆ ด้านล่าง
+        for i in range(3):
+            alpha = 40 - (i * 10)
+            pygame.draw.ellipse(self.shading_image_overlay, (0, 0, 0, alpha),
+                                (0, self.size_h // 2 + (i * 2), self.size_w, self.size_h // 1.5))
 
     def update_stats(self):
         if self.is_dead:
@@ -347,10 +376,24 @@ class Fish:
             self.y = max(100, min(680 - self.size_h, self.y))
 
     def draw(self, surface):
-        # 1. วาดเงาบนพื้น (Floor Shadow) โดยใช้เงาที่พรีเรนเดอร์ไว้
+        # 1. วาดเงาบนพื้น (Floor Shadow) ที่มีการเปลี่ยนขนาดและความเข้มตามความสูง
         if not self.is_dragging:
-            shadow_y = 680 if not self.in_quarantine else quarantine_rect.bottom - 10
-            surface.blit(self.shadow_surf, (self.x + (self.size_w - self.shadow_surf.get_width()) // 2, shadow_y))
+            floor_y = 680 if not self.in_quarantine else quarantine_rect.bottom - 10
+            # คำนวณระยะห่างจากพื้น (ใช้จุดกึ่งกลางปลา)
+            dist_to_floor = floor_y - (self.y + self.size_h // 2)
+
+            # ยิ่งไกลจากพื้น เงายิ่งจางและขยายใหญ่ขึ้น (แต่ไม่เกินขอบเขตที่ดูแปลก)
+            shadow_factor = max(0.0, min(1.0, dist_to_floor / 500.0))
+            shadow_scale = 0.6 + (shadow_factor * 0.4) # ขนาด 60% ถึง 100%
+            shadow_alpha = max(5, int(80 * (1.0 - shadow_factor))) # ความเข้มจางลงตามระยะ
+
+            s_w = int(self.shadow_surf.get_width() * shadow_scale)
+            s_h = int(self.shadow_surf.get_height() * shadow_scale)
+            if s_w > 0 and s_h > 0:
+                # ใช้ scale ธรรมดาเพื่อความเร็ว แทน smoothscale
+                scaled_shadow = pygame.transform.scale(self.shadow_surf, (s_w, s_h))
+                scaled_shadow.set_alpha(shadow_alpha)
+                surface.blit(scaled_shadow, (self.x + (self.size_w - s_w) // 2, floor_y - s_h // 2))
 
         target_color = self.base_color
 
@@ -381,21 +424,28 @@ class Fish:
                     # ใส่สีตามปกติ / สีซีดลงตอนป่วย
                     temp_surface.fill(target_color, special_flags=pygame.BLEND_RGB_MULT)
 
-                # เพิ่มแสงและเงาให้ตัวปลา (Body Shading)
-                shading_overlay = pygame.Surface((self.size_w, self.size_h), pygame.SRCALPHA)
-                # แสงตกกระทบด้านบน (Highlight)
-                pygame.draw.ellipse(shading_overlay, (255, 255, 255, 60), (0, -self.size_h // 4, self.size_w, self.size_h // 2))
-                # เงาด้านล่าง (Shadow)
-                pygame.draw.ellipse(shading_overlay, (0, 0, 0, 60), (0, self.size_h // 2, self.size_w, self.size_h // 2))
-                temp_surface.blit(shading_overlay, (0, 0))
+                # เพิ่มแสงและเงาให้ตัวปลา (Body Shading) โดยใช้แผ่นที่พรีเรนเดอร์ไว้
+                temp_surface.blit(self.shading_image_overlay, (0, 0))
 
                 self.image_right = temp_surface.copy()
                 self.image_left = pygame.transform.flip(self.image_right, True, False)
 
+                # พรีเรนเดอร์ Drop Shadow (ลดภาระตอนวาด)
+                self.drop_shadow_right = self.image_right.copy()
+                self.drop_shadow_right.fill((0, 0, 0, 60), special_flags=pygame.BLEND_RGBA_MULT)
+                self.drop_shadow_left = pygame.transform.flip(self.drop_shadow_right, True, False)
+
         if original_fish_img:
             img = self.image_right if self.vel_x > 0 else self.image_left
+            shadow_img = self.drop_shadow_right if self.vel_x > 0 else self.drop_shadow_left
+
             if self.is_dead:
                 img = pygame.transform.flip(img, False, True)  # หงายท้อง
+                shadow_img = pygame.transform.flip(shadow_img, False, True)
+
+            # 2. วาด Drop Shadow (เงาตัวปลาซ้อนหลัง) เพื่อมิติในน้ำ
+            if not self.is_dragging:
+                surface.blit(shadow_img, (self.x + 8, self.y + 8))
 
             if self.is_dragging:
                 img = img.copy()
@@ -404,6 +454,11 @@ class Fish:
             surface.blit(img, (self.x, self.y))
         else:
             draw_color = (128, 128, 128) if self.is_dead else target_color
+
+            # 2. วาด Drop Shadow สำหรับ Ellipse
+            if not self.is_dragging:
+                pygame.draw.ellipse(surface, (0, 0, 0, 50), (self.x + 5, self.y + 5, self.size_w, self.size_h))
+
             pygame.draw.ellipse(surface, draw_color, self.rect)
             # ใช้พรีเรนเดอร์ shading สำหรับวงรี
             surface.blit(self.shading_fallback_surf, (self.x, self.y))
