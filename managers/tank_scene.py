@@ -3,10 +3,11 @@ from core.constants import SCREEN_WIDTH, SCREEN_HEIGHT, TRASH_RECT_COORDS, QUARA
 from core.theme import COLOR_DEEP_BLUE, COLOR_WHITE, COLOR_GOLD, COLOR_UI_BG, get_font
 from core.game_state import game_state
 from managers.scene_manager import Scene; from managers.ui_manager import UIManager; from managers.asset_manager import assets
-from entities.fish import Fish; from entities.food import Food; from entities.decoration import Decoration
+from entities.fish import Fish; from entities.food import Food; from entities.decoration import Decoration; from managers.light_manager import LightManager
 class TankScene(Scene):
     def __init__(self):
         self.ui_manager = UIManager(on_decor_pickup=self.on_decor_pickup)
+        self.light_manager = LightManager()
         self.fishes, self.foods, self.decor_objects, self.dragging_fish, self.dragging_decor = [Fish(), Fish()], [], [], None, None
         self.trash_rect, self.quarantine_rect = pygame.Rect(*TRASH_RECT_COORDS), pygame.Rect(*QUARANTINE_RECT_COORDS)
         self.ui_manager.hud.add_button(150, 820, 120, 50, "SHOP", self.ui_manager.show_shop)
@@ -65,6 +66,7 @@ class TankScene(Scene):
         for f in self.foods: f.update(self.fishes)
         self.foods = [f for f in self.foods if not f.eaten]
         self.ui_manager.update()
+        self.light_manager.update()
     def draw(self, surface):
         bg = assets.load_image(os.path.join("asset", "Tank", "Tank.png"), alpha=False)
         if bg: surface.blit(bg, (0,0))
@@ -74,6 +76,7 @@ class TankScene(Scene):
             self.dragging_decor.draw(surface)
             t = get_font("Tahoma", 16, bold=True).render("Q/E to Scale, Click to Place", True, COLOR_WHITE)
             surface.blit(t, (SCREEN_WIDTH//2-t.get_width()//2, 100))
+        self.light_manager.draw(surface)
         for f in self.foods: f.draw(surface)
         for f in self.fishes: f.draw(surface)
         med = assets.load_image(os.path.join("asset", "Ui", "medic_tank.png"), scale=(300, 180))
