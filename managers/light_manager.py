@@ -34,7 +34,7 @@ class LightManager:
         self.fade = np.clip(1.2 - dist / (self.gw * 1.3), 0, 1)
 
         # Warm Orange Color
-        self.color_rgb = np.array([255, 180, 80], dtype=np.uint8)
+        self.color_rgb = np.array([210, 240, 255], dtype=np.uint8)
 
     def _create_mask(self):
         """Detect the water area in Tank.png using OpenCV."""

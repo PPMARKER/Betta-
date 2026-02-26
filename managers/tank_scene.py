@@ -1,6 +1,6 @@
 import pygame, os, time
 from core.constants import SCREEN_WIDTH, SCREEN_HEIGHT, TRASH_RECT_COORDS, QUARANTINE_RECT_COORDS
-from core.theme import COLOR_DEEP_BLUE, COLOR_WHITE, COLOR_GOLD, COLOR_UI_BG, get_font
+from core.theme import COLOR_DEEP_BLUE, COLOR_OCEAN_BLUE, COLOR_WHITE, COLOR_GOLD, COLOR_UI_BG, get_font
 from core.game_state import game_state
 from managers.scene_manager import Scene; from managers.ui_manager import UIManager; from managers.asset_manager import assets
 from entities.fish import Fish; from entities.food import Food; from entities.decoration import Decoration; from managers.light_manager import LightManager
@@ -68,9 +68,9 @@ class TankScene(Scene):
         self.ui_manager.update()
         self.light_manager.update()
     def draw(self, surface):
-        bg = assets.load_image(os.path.join("asset", "Tank", "Tank.png"), alpha=False)
+        surface.fill(COLOR_OCEAN_BLUE)
+        bg = assets.load_image(os.path.join("asset", "Tank", "Tank.png"), alpha=True)
         if bg: surface.blit(bg, (0,0))
-        else: surface.fill(COLOR_DEEP_BLUE)
         for o in self.decor_objects: o.draw(surface)
         if self.dragging_decor:
             self.dragging_decor.draw(surface)
