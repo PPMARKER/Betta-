@@ -1,14 +1,37 @@
 import pygame
 from core.constants import SCREEN_WIDTH, SCREEN_HEIGHT, FPS
 from managers.scene_manager import SceneManager; from managers.tank_scene import TankScene
+from managers.gl_manager import GLManager
+import managers.gl_manager
+
 def main():
-    pygame.init(); screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT)); pygame.display.set_caption("Ocean Tycoon - Refactored"); clock = pygame.time.Clock()
-    sm = SceneManager(); sm.change_scene(TankScene())
+    pygame.init()
+    # Use OpenGL
+    pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.OPENGL | pygame.DOUBLEBUF)
+    pygame.display.set_caption("Ocean Tycoon - Refactored")
+    clock = pygame.time.Clock()
+
+    # Initialize GLManager
+    managers.gl_manager.gl_manager = GLManager.get_instance()
+
+    sm = SceneManager()
+    sm.change_scene(TankScene())
     running = True
     while running:
         for e in pygame.event.get():
             if e.type == pygame.QUIT: running = False
             sm.handle_event(e)
-        sm.update(); sm.draw(screen); pygame.display.flip(); clock.tick(FPS)
+        sm.update()
+
+        # Clear screen via GL
+        managers.gl_manager.gl_manager.clear((0.05, 0.1, 0.2, 1.0))
+
+        # Draw scene (passing None since we don't blit to surface anymore)
+        sm.draw(None)
+
+        pygame.display.flip()
+        clock.tick(FPS)
     pygame.quit()
-if __name__ == "__main__": main()
+
+if __name__ == "__main__":
+    main()
