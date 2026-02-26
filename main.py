@@ -1,7 +1,6 @@
 import pygame
 from core.constants import SCREEN_WIDTH, SCREEN_HEIGHT, FPS
-from managers.scene_manager import SceneManager; from managers.tank_scene import TankScene
-from managers.gl_manager import GLManager
+# Import gl_manager first to ensure the module is loaded
 import managers.gl_manager
 
 def main():
@@ -12,7 +11,11 @@ def main():
     clock = pygame.time.Clock()
 
     # Initialize GLManager
-    managers.gl_manager.gl_manager = GLManager.get_instance()
+    managers.gl_manager.init_gl()
+
+    # Now import scenes after GL is initialized
+    from managers.scene_manager import SceneManager
+    from managers.tank_scene import TankScene
 
     sm = SceneManager()
     sm.change_scene(TankScene())
@@ -26,7 +29,7 @@ def main():
         # Clear screen via GL
         managers.gl_manager.gl_manager.clear((0.05, 0.1, 0.2, 1.0))
 
-        # Draw scene (passing None since we don't blit to surface anymore)
+        # Draw scene
         sm.draw(None)
 
         pygame.display.flip()

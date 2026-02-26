@@ -88,12 +88,7 @@ class GLManager:
     def draw_texture(self, surface, x, y, width=None, height=None, color=(1,1,1,1), angle=0, flip_x=False, flip_y=False, blend_mode='alpha'):
         tex = self.get_texture(surface)
 
-        # Update texture content for dynamic surfaces (like UI or Light)
-        # We can detect this by checking if it's the same object but we want to refresh
-        # For simplicity, we'll refresh if it's the light surface or UI surface.
-        # But we don't have their names here.
-        # Let's just update every frame for now, or use a flag.
-
+        # Update texture content for dynamic surfaces
         rgb_data = pygame.image.tostring(surface, 'RGBA')
         tex.write(rgb_data)
 
@@ -103,8 +98,6 @@ class GLManager:
             self.ctx.blend_func = moderngl.SRC_ALPHA, moderngl.ONE_MINUS_SRC_ALPHA
 
         self._render_quad(self.prog_base, self.vao_base, tex, x, y, width, height, color, angle, flip_x, flip_y)
-
-        # Reset blend func
         self.ctx.blend_func = moderngl.SRC_ALPHA, moderngl.ONE_MINUS_SRC_ALPHA
 
     def draw_fish(self, surface, x, y, width, height, color=(1,1,1,1), angle=0, flip_x=False, speed=10.0, amplitude=0.08):
@@ -144,3 +137,7 @@ class GLManager:
         self.ctx.clear(*color)
 
 gl_manager = None
+
+def init_gl():
+    global gl_manager
+    gl_manager = GLManager.get_instance()
