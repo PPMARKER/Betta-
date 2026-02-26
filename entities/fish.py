@@ -2,7 +2,7 @@ import pygame, random, math, time, os
 from core.constants import SCREEN_WIDTH, SCREEN_HEIGHT, QUARANTINE_RECT_COORDS
 from core.theme import FISH_COLORS, COLOR_WHITE
 from managers.asset_manager import assets
-import managers.gl_manager as glm
+import managers.gl_manager as gl_mod
 
 class Fish:
     def __init__(self):
@@ -110,4 +110,4 @@ class Fish:
         speed = 12.0 if not self.is_sick else 5.0
         if self.is_dead: speed = 0
 
-        glm.gl_manager.draw_fish(orig, self.x, self.y, self.size_w, self.size_h, color=tuple(color_mult), angle=angle, flip_x=flip_x, speed=speed)
+        gl_mod.gl_manager.draw_fish(orig, self.x, self.y, self.size_w, self.size_h, color=tuple(color_mult), angle=angle, flip_x=flip_x, speed=speed)

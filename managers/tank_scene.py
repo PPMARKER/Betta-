@@ -4,7 +4,7 @@ from core.theme import COLOR_DEEP_BLUE, COLOR_OCEAN_BLUE, COLOR_WHITE, COLOR_GOL
 from core.game_state import game_state
 from managers.scene_manager import Scene; from managers.ui_manager import UIManager; from managers.asset_manager import assets
 from entities.fish import Fish; from entities.food import Food; from entities.decoration import Decoration; from managers.light_manager import LightManager
-import managers.gl_manager as glm
+import managers.gl_manager as gl_mod
 
 class TankScene(Scene):
     def __init__(self):
@@ -67,7 +67,7 @@ class TankScene(Scene):
                 elif e.key == pygame.K_e: self.dragging_decor.update_scale(self.dragging_decor.scale + 0.1)
 
     def update(self):
-        glm.gl_manager.update_time(1.0 / 60.0)
+        gl_mod.gl_manager.update_time(1.0 / 60.0)
         mp = pygame.mouse.get_pos()
         if self.dragging_fish: self.dragging_fish.x, self.dragging_fish.y = mp[0]-self.dragging_fish.size_w/2, mp[1]-self.dragging_fish.size_h/2; self.dragging_fish.rect.topleft = (self.dragging_fish.x, self.dragging_fish.y)
         if self.dragging_decor: self.dragging_decor.x, self.dragging_decor.y = mp
@@ -81,7 +81,7 @@ class TankScene(Scene):
     def draw(self, _surface):
         # 1. Background
         bg = assets.load_image(os.path.join("asset", "Tank", "Tank.png"), alpha=True)
-        if bg: glm.gl_manager.draw_texture(bg, 0, 0)
+        if bg: gl_mod.gl_manager.draw_texture(bg, 0, 0)
 
         # 2. Decorations
         for o in self.decor_objects: o.draw(None)
@@ -119,7 +119,7 @@ class TankScene(Scene):
         self.draw_fish_popups(self.ui_surf)
 
         # Draw the whole UI surface via GL
-        glm.gl_manager.draw_texture(self.ui_surf, 0, 0)
+        gl_mod.gl_manager.draw_texture(self.ui_surf, 0, 0)
 
     def draw_fish_popups(self, surface):
         if self.ui_manager.shop.visible or self.ui_manager.inventory.visible or self.dragging_fish or self.dragging_decor: return

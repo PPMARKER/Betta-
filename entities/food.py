@@ -1,7 +1,7 @@
 import pygame, random, math, time
 from core.constants import SCREEN_WIDTH, SCREEN_HEIGHT
 from core.theme import COLOR_FOOD_PELLETS, COLOR_FOOD_MOINA
-import managers.gl_manager as glm
+import managers.gl_manager as gl_mod
 
 class Food:
     def __init__(self, x, y, type_name):
@@ -52,9 +52,9 @@ class Food:
             pts = [(10 + px, 10 + py + (off if i % 2 == 0 else -off)) for i, (px, py) in enumerate(self.points)]
             if len(pts) >= 2: pygame.draw.lines(s, COLOR_FOOD_MOINA, False, pts, 2)
             pygame.draw.circle(s, (150, 0, 0), (10, 10), 3)
-            glm.gl_manager.draw_texture(s, self.x - 10, self.y - 10)
+            gl_mod.gl_manager.draw_texture(s, self.x - 10, self.y - 10)
         else:
             s = pygame.Surface((12, 12), pygame.SRCALPHA)
             pygame.draw.circle(s, COLOR_FOOD_PELLETS, (6, 6), 5)
             pygame.draw.circle(s, (100, 50, 10), (6, 6), 5, 1)
-            glm.gl_manager.draw_texture(s, self.x - 6, self.y - 6)
+            gl_mod.gl_manager.draw_texture(s, self.x - 6, self.y - 6)

@@ -1,7 +1,7 @@
 import moderngl
 import pygame
 import numpy as np
-import glm
+import glm as pyglm
 from core.constants import SCREEN_WIDTH, SCREEN_HEIGHT
 from animations.fish_animation import FISH_VERTEX_SHADER, FISH_FRAGMENT_SHADER
 
@@ -68,7 +68,8 @@ class GLManager:
             (self.quad_buffer, '2f 2f', 'in_vert', 'in_texcoord'),
         ], mode=moderngl.TRIANGLE_STRIP)
 
-        self.projection = glm.ortho(0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, -1, 1)
+        # Use pyglm and ensure floats for ortho
+        self.projection = pyglm.ortho(0.0, float(SCREEN_WIDTH), float(SCREEN_HEIGHT), 0.0, -1.0, 1.0)
         self.textures = {}
         self.time = 0
 
@@ -88,7 +89,6 @@ class GLManager:
     def draw_texture(self, surface, x, y, width=None, height=None, color=(1,1,1,1), angle=0, flip_x=False, flip_y=False, blend_mode='alpha'):
         tex = self.get_texture(surface)
 
-        # Update texture content for dynamic surfaces
         rgb_data = pygame.image.tostring(surface, 'RGBA')
         tex.write(rgb_data)
 
@@ -112,20 +112,20 @@ class GLManager:
         if width is None: width = tex.width
         if height is None: height = tex.height
 
-        model = glm.mat4(1.0)
-        model = glm.translate(model, glm.vec3(x, y, 0))
+        model = pyglm.mat4(1.0)
+        model = pyglm.translate(model, pyglm.vec3(x, y, 0))
 
         if angle != 0:
-            model = glm.translate(model, glm.vec3(width/2, height/2, 0))
-            model = glm.rotate(model, glm.radians(angle), glm.vec3(0, 0, 1))
-            model = glm.translate(model, glm.vec3(-width/2, -height/2, 0))
+            model = pyglm.translate(model, pyglm.vec3(width/2, height/2, 0))
+            model = pyglm.rotate(model, pyglm.radians(angle), pyglm.vec3(0, 0, 1))
+            model = pyglm.translate(model, pyglm.vec3(-width/2, -height/2, 0))
 
         if flip_x or flip_y:
-            model = glm.translate(model, glm.vec3(width/2 if flip_x else 0, height/2 if flip_y else 0, 0))
-            model = glm.scale(model, glm.vec3(-1 if flip_x else 1, -1 if flip_y else 1, 1))
-            model = glm.translate(model, glm.vec3(-width/2 if flip_x else 0, -height/2 if flip_y else 0, 0))
+            model = pyglm.translate(model, pyglm.vec3(width/2 if flip_x else 0, height/2 if flip_y else 0, 0))
+            model = pyglm.scale(model, pyglm.vec3(-1 if flip_x else 1, -1 if flip_y else 1, 1))
+            model = pyglm.translate(model, pyglm.vec3(-width/2 if flip_x else 0, -height/2 if flip_y else 0, 0))
 
-        model = glm.scale(model, glm.vec3(width, height, 1))
+        model = pyglm.scale(model, pyglm.vec3(width, height, 1))
 
         tex.use(0)
         prog['u_proj'].write(self.projection)

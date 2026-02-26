@@ -1,5 +1,5 @@
 import pygame
-import managers.gl_manager as glm
+import managers.gl_manager as gl_mod
 
 class Decoration:
     def __init__(self, x, y, img, name, scale=1.0, original_img=None):
@@ -13,7 +13,7 @@ class Decoration:
 
     def draw(self, surface):
         rect = self.img.get_rect(midbottom=(self.x, self.y))
-        glm.gl_manager.draw_texture(self.img, rect.x, rect.y)
+        gl_mod.gl_manager.draw_texture(self.img, rect.x, rect.y)
 
     def get_rect(self):
         return self.img.get_rect(midbottom=(self.x, self.y))
