@@ -101,7 +101,7 @@ class Fish:
         elif self.is_sick: 
             color_mult = [(c/255.0 + 0.8)/2.0 for c in self.base_color] + [1.0]
         
-        if self.is_dragging: color_mult[3] = 0.7
+        # if self.is_dragging: color_mult[3] = 0.7
         
         angle = 0
         if self.is_dead: angle = 180
