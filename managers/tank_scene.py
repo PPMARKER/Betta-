@@ -79,6 +79,9 @@ class TankScene(Scene):
         self.light_manager.update()
 
     def draw(self, _surface):
+        # 0. Clear with background color to brighten the transparent tank
+        gl_mod.gl_manager.clear((30/255, 144/255, 255/255, 1))
+
         # 1. Background
         bg = assets.load_image(os.path.join("asset", "Tank", "Tank.png"), alpha=True)
         if bg: gl_mod.gl_manager.draw_texture(bg, 0, 0)
@@ -95,6 +98,10 @@ class TankScene(Scene):
         # 5. Light (Additive blending for realism)
         self.light_manager.draw(None)
         
+        # 5.5. Draw dragging decoration IN FRONT of everything (before UI)
+        if self.dragging_decor:
+            self.dragging_decor.draw(None)
+
         # 6. UI (Rendered to a surface first)
         self.ui_surf.fill((0, 0, 0, 0))
         
