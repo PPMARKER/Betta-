@@ -1,6 +1,8 @@
 import pygame, random, math, time
 from core.constants import SCREEN_WIDTH, SCREEN_HEIGHT
 from core.theme import COLOR_FOOD_PELLETS, COLOR_FOOD_MOINA
+from managers.gl_manager import gl_manager
+
 class Food:
     def __init__(self, x, y, type_name):
         self.x, self.y, self.type = x, y, type_name
@@ -11,6 +13,7 @@ class Food:
         self.bottom_time = None
         self.wiggle_timer = 0
         self.points = [(random.randint(-4, 4), random.randint(-4, 4)) for _ in range(4)]
+
     def update(self, fishes):
         margin_x, margin_y_top, margin_y_bot = 160, 130, 630
         if self.type == 'moina':
@@ -41,12 +44,17 @@ class Food:
             if not self.on_bottom: self.on_bottom, self.bottom_time = True, time.time()
             if self.bottom_time and time.time() - self.bottom_time > (8 if self.type == 'moina' else 5): self.eaten = True
         self.wiggle_timer += 0.2
+
     def draw(self, surface):
         if self.type == 'moina':
+            s = pygame.Surface((20, 20), pygame.SRCALPHA)
             off = math.sin(self.wiggle_timer) * 3
-            pts = [(self.x + px, self.y + py + (off if i % 2 == 0 else -off)) for i, (px, py) in enumerate(self.points)]
-            if len(pts) >= 2: pygame.draw.lines(surface, COLOR_FOOD_MOINA, False, pts, 2)
-            pygame.draw.circle(surface, (150, 0, 0), (int(self.x), int(self.y)), 3)
+            pts = [(10 + px, 10 + py + (off if i % 2 == 0 else -off)) for i, (px, py) in enumerate(self.points)]
+            if len(pts) >= 2: pygame.draw.lines(s, COLOR_FOOD_MOINA, False, pts, 2)
+            pygame.draw.circle(s, (150, 0, 0), (10, 10), 3)
+            gl_manager.draw_texture(s, self.x - 10, self.y - 10)
         else:
-            pygame.draw.circle(surface, COLOR_FOOD_PELLETS, (int(self.x), int(self.y)), 5)
-            pygame.draw.circle(surface, (100, 50, 10), (int(self.x), int(self.y)), 5, 1)
+            s = pygame.Surface((12, 12), pygame.SRCALPHA)
+            pygame.draw.circle(s, COLOR_FOOD_PELLETS, (6, 6), 5)
+            pygame.draw.circle(s, (100, 50, 10), (6, 6), 5, 1)
+            gl_manager.draw_texture(s, self.x - 6, self.y - 6)

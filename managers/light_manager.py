@@ -1,3 +1,4 @@
+from managers.gl_manager import gl_manager
 import pygame
 import cv2
 import numpy as np
@@ -99,4 +100,4 @@ class LightManager:
         self.surface = pygame.image.frombuffer(res_full.tobytes(), (self.width, self.height), "RGBA")
 
     def draw(self, surface):
-        surface.blit(self.surface, (0, 0))
+        gl_manager.draw_texture(self.surface, 0, 0, blend_mode='additive')

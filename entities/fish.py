@@ -2,24 +2,26 @@ import pygame, random, math, time, os
 from core.constants import SCREEN_WIDTH, SCREEN_HEIGHT, QUARANTINE_RECT_COORDS
 from core.theme import FISH_COLORS, COLOR_WHITE
 from managers.asset_manager import assets
+from managers.gl_manager import gl_manager
+
 class Fish:
     def __init__(self):
         self.x, self.y = random.randint(200, SCREEN_WIDTH - 400), random.randint(250, SCREEN_HEIGHT - 350)
         self.angle = random.uniform(0, math.pi * 2)
         self.max_speed = random.uniform(1.8, 2.5)
         self.steering_force, self.vel_x, self.vel_y = 0.05, 0, 0
-        self.base_color, self.last_color = random.choice(FISH_COLORS), None
+        self.base_color = random.choice(FISH_COLORS)
         self.age, self.health, self.hunger = 1, 100.0, 70.0
         self.age_timer, self.hunger_timer, self.sickness_timer = time.time(), time.time(), 0
         self.growth_scale = 0.6
         self.update_size()
         self.bob_timer, self.is_dragging, self.is_sick, self.in_quarantine, self.is_dead, self.to_be_removed = random.uniform(0, 100), False, False, False, False, False
-        self.image_right, self.image_left = None, None
         self.quarantine_rect = pygame.Rect(*QUARANTINE_RECT_COORDS)
+
     def update_size(self):
         self.size_w, self.size_h = int(120 * self.growth_scale), int(75 * self.growth_scale)
         self.rect = pygame.Rect(self.x, self.y, self.size_w, self.size_h)
-        self.last_color = None
+
     def update_stats(self):
         if self.is_dead: return
         now = time.time()
@@ -38,6 +40,7 @@ class Fish:
             if self.health <= 0: self.health, self.is_dead = 0, True
         elif self.hunger > 60 and not self.is_sick: self.health += 0.05
         self.health = max(0, min(100, self.health))
+
     def move(self, all_fishes, foods):
         if self.is_dragging: return
         if self.is_dead:
@@ -87,23 +90,24 @@ class Fish:
         self.x, self.y = self.x + self.vel_x + px*1.5, self.y + self.vel_y + py*1.5
         self.bob_timer += 0.05; self.y += math.sin(self.bob_timer) * 0.2
         self.rect.topleft = (self.x, self.y)
+
     def draw(self, surface):
-        t_color = self.base_color
-        if self.is_dead: t_color = (-1, -1, -1)
-        elif self.is_sick: t_color = tuple(int((c + 200)/2) for c in self.base_color)
-        if self.last_color != t_color:
-            self.last_color = t_color
-            orig = assets.load_image(os.path.join("asset", "Fish", "ลอง.png"))
-            if orig:
-                temp = pygame.transform.scale(orig, (self.size_w, self.size_h))
-                if self.is_dead:
-                    try: temp = pygame.transform.grayscale(temp)
-                    except: temp.fill((100, 100, 100), special_flags=pygame.BLEND_RGB_MULT)
-                else: temp.fill(t_color, special_flags=pygame.BLEND_RGB_MULT)
-                self.image_right = temp.copy(); self.image_left = pygame.transform.flip(temp, True, False)
-        if self.image_right:
-            img = self.image_right if self.vel_x > 0 else self.image_left
-            if self.is_dead: img = pygame.transform.flip(img, False, True)
-            if self.is_dragging: img = img.copy(); img.fill((255, 255, 255, 180), special_flags=pygame.BLEND_RGBA_MULT)
-            surface.blit(img, (self.x, self.y))
-        else: pygame.draw.ellipse(surface, (128,128,128) if self.is_dead else t_color, self.rect)
+        orig = assets.load_image(os.path.join("asset", "Fish", "ลอง.png"))
+        if not orig: return
+
+        color_mult = [c/255.0 for c in self.base_color] + [1.0]
+        if self.is_dead:
+            color_mult = [0.4, 0.4, 0.4, 1.0]
+        elif self.is_sick:
+            color_mult = [(c/255.0 + 0.8)/2.0 for c in self.base_color] + [1.0]
+
+        if self.is_dragging: color_mult[3] = 0.7
+
+        angle = 0
+        if self.is_dead: angle = 180
+
+        flip_x = self.vel_x < 0
+        speed = 12.0 if not self.is_sick else 5.0
+        if self.is_dead: speed = 0
+
+        gl_manager.draw_fish(orig, self.x, self.y, self.size_w, self.size_h, color=tuple(color_mult), angle=angle, flip_x=flip_x, speed=speed)

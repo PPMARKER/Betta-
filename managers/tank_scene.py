@@ -4,6 +4,8 @@ from core.theme import COLOR_DEEP_BLUE, COLOR_OCEAN_BLUE, COLOR_WHITE, COLOR_GOL
 from core.game_state import game_state
 from managers.scene_manager import Scene; from managers.ui_manager import UIManager; from managers.asset_manager import assets
 from entities.fish import Fish; from entities.food import Food; from entities.decoration import Decoration; from managers.light_manager import LightManager
+from managers.gl_manager import gl_manager
+
 class TankScene(Scene):
     def __init__(self):
         self.ui_manager = UIManager(on_decor_pickup=self.on_decor_pickup)
@@ -17,7 +19,13 @@ class TankScene(Scene):
         self.ui_manager.hud.add_button(1050, 20, 120, 45, "More Tank", lambda: None, 'top')
         self.ui_manager.hud.add_button(1180, 20, 120, 45, "Sell Tank", lambda: None, 'top')
         self.ui_manager.hud.add_button(1310, 20, 110, 45, "Breed", lambda: None, 'top')
-    def on_decor_pickup(self, d): self.dragging_decor = Decoration(pygame.mouse.get_pos()[0], pygame.mouse.get_pos()[1], d["img"], d["name"], scale=d.get("scale", 1.0), original_img=d.get("original_img", d["img"]))
+
+        # Reuse UI surface to avoid memory leaks in GL texture cache
+        self.ui_surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+
+    def on_decor_pickup(self, d):
+        self.dragging_decor = Decoration(pygame.mouse.get_pos()[0], pygame.mouse.get_pos()[1], d["img"], d["name"], scale=d.get("scale", 1.0), original_img=d.get("original_img", d["img"]))
+
     def handle_event(self, e):
         if self.ui_manager.handle_event(e): return
         mp = pygame.mouse.get_pos()
@@ -57,7 +65,9 @@ class TankScene(Scene):
             if self.dragging_decor:
                 if e.key == pygame.K_q: self.dragging_decor.update_scale(self.dragging_decor.scale - 0.1)
                 elif e.key == pygame.K_e: self.dragging_decor.update_scale(self.dragging_decor.scale + 0.1)
+
     def update(self):
+        gl_manager.update_time(1.0 / 60.0)
         mp = pygame.mouse.get_pos()
         if self.dragging_fish: self.dragging_fish.x, self.dragging_fish.y = mp[0]-self.dragging_fish.size_w/2, mp[1]-self.dragging_fish.size_h/2; self.dragging_fish.rect.topleft = (self.dragging_fish.x, self.dragging_fish.y)
         if self.dragging_decor: self.dragging_decor.x, self.dragging_decor.y = mp
@@ -67,29 +77,50 @@ class TankScene(Scene):
         self.foods = [f for f in self.foods if not f.eaten]
         self.ui_manager.update()
         self.light_manager.update()
-    def draw(self, surface):
-        surface.fill(COLOR_OCEAN_BLUE)
+
+    def draw(self, _surface):
+        # 1. Background
         bg = assets.load_image(os.path.join("asset", "Tank", "Tank.png"), alpha=True)
-        if bg: surface.blit(bg, (0,0))
-        for o in self.decor_objects: o.draw(surface)
-        if self.dragging_decor:
-            self.dragging_decor.draw(surface)
-            t = get_font("Tahoma", 16, bold=True).render("Q/E to Scale, Click to Place", True, COLOR_WHITE)
-            surface.blit(t, (SCREEN_WIDTH//2-t.get_width()//2, 100))
-        for f in self.foods: f.draw(surface)
-        for f in self.fishes: f.draw(surface)
+        if bg: gl_manager.draw_texture(bg, 0, 0)
+
+        # 2. Decorations
+        for o in self.decor_objects: o.draw(None)
+
+        # 3. Foods
+        for f in self.foods: f.draw(None)
+
+        # 4. Fishes
+        for f in self.fishes: f.draw(None)
+
+        # 5. Light (Additive blending for realism)
+        self.light_manager.draw(None)
+
+        # 6. UI (Rendered to a surface first)
+        self.ui_surf.fill((0, 0, 0, 0))
+
+        # Scene specific UI
         med = assets.load_image(os.path.join("asset", "Ui", "medic_tank.png"), scale=(300, 180))
-        if med: surface.blit(med, self.quarantine_rect.topleft)
-        pygame.draw.rect(surface, (80,80,80), self.trash_rect, border_radius=15)
-        pygame.draw.rect(surface, (220,50,50), self.trash_rect, width=4, border_radius=15)
-        surface.blit(get_font("Tahoma", 18, bold=True).render("TRASH", True, COLOR_WHITE), (self.trash_rect.x+18, self.trash_rect.y+40))
-        self.light_manager.draw(surface)
-        self.ui_manager.draw(surface)
+        if med: self.ui_surf.blit(med, self.quarantine_rect.topleft)
+        pygame.draw.rect(self.ui_surf, (80,80,80), self.trash_rect, border_radius=15)
+        pygame.draw.rect(self.ui_surf, (220,50,50), self.trash_rect, width=4, border_radius=15)
+        self.ui_surf.blit(get_font("Tahoma", 18, bold=True).render("TRASH", True, COLOR_WHITE), (self.trash_rect.x+18, self.trash_rect.y+40))
+
+        if self.dragging_decor:
+            t = get_font("Tahoma", 16, bold=True).render("Q/E to Scale, Click to Place", True, COLOR_WHITE)
+            self.ui_surf.blit(t, (SCREEN_WIDTH//2-t.get_width()//2, 100))
+
+        self.ui_manager.draw(self.ui_surf)
+
         if game_state.selected_slot != -1 and game_state.quick_items[game_state.selected_slot]:
             k = game_state.quick_items[game_state.selected_slot]
             if game_state.inventory[k]["qty"] > 0:
-                mp = pygame.mouse.get_pos(); pygame.draw.circle(surface, game_state.inventory[k]["color"], mp, 8); pygame.draw.circle(surface, COLOR_WHITE, mp, 8, 2)
-        self.draw_fish_popups(surface)
+                mp = pygame.mouse.get_pos(); pygame.draw.circle(self.ui_surf, game_state.inventory[k]["color"], mp, 8); pygame.draw.circle(self.ui_surf, COLOR_WHITE, mp, 8, 2)
+
+        self.draw_fish_popups(self.ui_surf)
+
+        # Draw the whole UI surface via GL
+        gl_manager.draw_texture(self.ui_surf, 0, 0)
+
     def draw_fish_popups(self, surface):
         if self.ui_manager.shop.visible or self.ui_manager.inventory.visible or self.dragging_fish or self.dragging_decor: return
         mp = pygame.mouse.get_pos(); h = None
