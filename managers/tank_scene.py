@@ -76,7 +76,6 @@ class TankScene(Scene):
             self.dragging_decor.draw(surface)
             t = get_font("Tahoma", 16, bold=True).render("Q/E to Scale, Click to Place", True, COLOR_WHITE)
             surface.blit(t, (SCREEN_WIDTH//2-t.get_width()//2, 100))
-        self.light_manager.draw(surface)
         for f in self.foods: f.draw(surface)
         for f in self.fishes: f.draw(surface)
         med = assets.load_image(os.path.join("asset", "Ui", "medic_tank.png"), scale=(300, 180))
@@ -84,6 +83,7 @@ class TankScene(Scene):
         pygame.draw.rect(surface, (80,80,80), self.trash_rect, border_radius=15)
         pygame.draw.rect(surface, (220,50,50), self.trash_rect, width=4, border_radius=15)
         surface.blit(get_font("Tahoma", 18, bold=True).render("TRASH", True, COLOR_WHITE), (self.trash_rect.x+18, self.trash_rect.y+40))
+        self.light_manager.draw(surface)
         self.ui_manager.draw(surface)
         if game_state.selected_slot != -1 and game_state.quick_items[game_state.selected_slot]:
             k = game_state.quick_items[game_state.selected_slot]

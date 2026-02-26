@@ -73,10 +73,10 @@ class LightManager:
                   np.sin(self.angles * 35 + self.time * 2.2) * 0.3
 
         ray_map = (ray_map + 1.0) / 2.0
-        ray_map = np.power(ray_map, 3.5)
+        ray_map = np.power(ray_map, 1.5)
 
         # Apply distance fade and limit intensity
-        alpha_map = (ray_map * self.fade * 90).astype(np.float32)
+        alpha_map = (ray_map * self.fade * 210).astype(np.float32)
 
         # Use SciPy for smooth blur
         alpha_map = gaussian_filter(alpha_map, sigma=2.0)
