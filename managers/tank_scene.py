@@ -119,7 +119,7 @@ class TankScene(Scene):
         self.draw_fish_popups(self.ui_surf)
 
         # Draw the whole UI surface via GL
-        gl_mod.gl_manager.draw_texture(self.ui_surf, 0, 0)
+        gl_mod.gl_manager.draw_texture(self.ui_surf, 0, 0, dynamic=True)
 
     def draw_fish_popups(self, surface):
         if self.ui_manager.shop.visible or self.ui_manager.inventory.visible or self.dragging_fish or self.dragging_decor: return

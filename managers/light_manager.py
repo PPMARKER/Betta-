@@ -3,7 +3,7 @@ import pygame
 import cv2
 import numpy as np
 import os
-from scipy.ndimage import gaussian_filter
+import moderngl
 from core.constants import SCREEN_WIDTH, SCREEN_HEIGHT
 
 class LightManager:
@@ -11,93 +11,110 @@ class LightManager:
         self.width = SCREEN_WIDTH
         self.height = SCREEN_HEIGHT
         
-        # Use a lower resolution for the filter generation to ensure performance
-        # especially since we are using scipy's gaussian_filter
-        self.gen_scale = 0.5
-        self.gw = int(self.width * self.gen_scale)
-        self.gh = int(self.height * self.gen_scale)
-        
-        self.mask = self._create_mask()
-        self.time = 0
-        self.surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
-        
-        # Pre-calculate angles and distance from top-right source on the smaller grid
-        src_x, src_y = self.gw * 1.1, -self.gh * 0.1
-        
-        Y, X = np.indices((self.gh, self.gw))
-        dx = X - src_x
-        dy = Y - src_y
-        
-        self.angles = np.arctan2(dy, dx)
-        dist = np.sqrt(dx**2 + dy**2)
-        
-        # Distance fade: stronger near top-right
-        self.fade = np.clip(1.2 - dist / (self.gw * 1.3), 0, 1)
-        
-        # Warm Orange Color
-        self.color_rgb = np.array([210, 240, 255], dtype=np.uint8)
+        # Shader for Light Effect
+        ctx = gl_mod.gl_manager.ctx
+        self.prog_light = ctx.program(
+            vertex_shader="""
+                #version 330
+                in vec2 in_vert;
+                in vec2 in_texcoord;
+                out vec2 v_texcoord;
+                uniform mat4 u_proj;
+                uniform mat4 u_model;
 
-    def _create_mask(self):
-        """Detect the water area in Tank.png using OpenCV."""
+                void main() {
+                    gl_Position = u_proj * u_model * vec4(in_vert, 0.0, 1.0);
+                    v_texcoord = in_texcoord;
+                }
+            """,
+            fragment_shader="""
+                #version 330
+                uniform sampler2D u_mask;
+                uniform float u_time;
+                uniform vec3 u_color;
+                in vec2 v_texcoord;
+                out vec4 f_color;
+
+                void main() {
+                    vec4 mask_rgba = texture(u_mask, v_texcoord);
+                    // If mask is white (r > 0.5), we draw light
+                    if (mask_rgba.r < 0.5) discard;
+
+                    // Light source position (top-right)
+                    vec2 source = vec2(1.1, -0.1);
+                    vec2 dir = v_texcoord - source;
+                    float dist = length(dir);
+                    float angle = atan(dir.y, dir.x);
+
+                    // Shimmering rays
+                    float ray = sin(angle * 10.0 + u_time * 0.7) * 0.4 +
+                                sin(angle * 18.0 - u_time * 1.1) * 0.3 +
+                                sin(angle * 35.0 + u_time * 2.2) * 0.3;
+
+                    ray = (ray + 1.0) / 2.0;
+                    ray = pow(ray, 1.5);
+
+                    // Distance fade
+                    float fade = clamp(1.2 - dist / 1.3, 0.0, 1.0);
+
+                    float alpha = ray * fade * 0.4; // Max alpha reduced for better blending
+
+                    f_color = vec4(u_color * alpha, alpha); // Premultiplied for additive
+                }
+            """
+        )
+
+        self.vao_light = ctx.vertex_array(self.prog_light, [
+            (gl_mod.gl_manager.quad_buffer, '2f 2f', 'in_vert', 'in_texcoord'),
+        ], mode=moderngl.TRIANGLE_STRIP)
+
+        # Pre-create mask texture
+        self.mask_tex = self._create_mask_texture()
+
+    def _create_mask_texture(self):
+        """Detect the water area and return as a ModernGL Texture."""
         path = os.path.join("asset", "Tank", "Tank.png")
-        mask = None
+        mask_rgb = None
         if os.path.exists(path):
             img = cv2.imread(path, cv2.IMREAD_UNCHANGED)
             if img is not None and img.shape[2] == 4:
-                # Mask transparent areas (water)
                 mask = (img[:, :, 3] < 128).astype(np.uint8) * 255
-                # Resize to generation resolution
-                mask = cv2.resize(mask, (self.gw, self.gh), interpolation=cv2.INTER_NEAREST)
-                
-                # Clean up and fill holes
                 kernel = np.ones((5, 5), np.uint8)
                 mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-                contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                if contours:
-                    c = max(contours, key=cv2.contourArea)
-                    mask = np.zeros_like(mask)
-                    cv2.drawContours(mask, [c], -1, 255, -1)
-        
-        if mask is None:
-            mask = np.zeros((self.gh, self.gw), dtype=np.uint8)
-            cv2.rectangle(mask, (0, int(self.gh*0.1)), (self.gw, int(self.gh*0.85)), 255, -1)
-        
-        return mask
+                mask_rgb = cv2.cvtColor(mask, cv2.COLOR_GRAY2RGB)
+                w, h = img.shape[1], img.shape[0]
+
+        if mask_rgb is None:
+            mask_rgb = np.zeros((self.height, self.width, 3), dtype=np.uint8)
+            cv2.rectangle(mask_rgb, (0, int(self.height*0.1)), (self.width, int(self.height*0.85)), (255,255,255), -1)
+            w, h = self.width, self.height
+
+        ctx = gl_mod.gl_manager.ctx
+        tex = ctx.texture((w, h), 3, mask_rgb.tobytes())
+        tex.filter = (moderngl.LINEAR, moderngl.LINEAR)
+        return tex
 
     def update(self):
-        """Update the animation using NumPy and SciPy."""
-        self.time += 0.05
-        
-        # Create shimmering rays
-        ray_map = np.sin(self.angles * 10 + self.time * 0.7) * 0.4 + \
-                  np.sin(self.angles * 18 - self.time * 1.1) * 0.3 + \
-                  np.sin(self.angles * 35 + self.time * 2.2) * 0.3
-        
-        ray_map = (ray_map + 1.0) / 2.0
-        ray_map = np.power(ray_map, 1.5)
-        
-        # Apply distance fade and limit intensity
-        alpha_map = (ray_map * self.fade *150).astype(np.float32)
-        
-        # Use SciPy for smooth blur
-        alpha_map = gaussian_filter(alpha_map, sigma=2.0)
-        alpha_map = alpha_map.astype(np.uint8)
-        
-        # Apply the tank mask
-        alpha_map = cv2.bitwise_and(alpha_map, alpha_map, mask=self.mask)
-        
-        # Construct RGBA image at generation resolution
-        res = np.zeros((self.gh, self.gw, 4), dtype=np.uint8)
-        res[:, :, 0] = self.color_rgb[0]
-        res[:, :, 1] = self.color_rgb[1]
-        res[:, :, 2] = self.color_rgb[2]
-        res[:, :, 3] = alpha_map
-        
-        # Upscale to full resolution for Pygame
-        res_full = cv2.resize(res, (self.width, self.height), interpolation=cv2.INTER_LINEAR)
-        
-        # Convert to Pygame Surface
-        self.surface = pygame.image.frombuffer(res_full.tobytes(), (self.width, self.height), "RGBA")
+        pass
 
-    def draw(self, surface):
-        gl_mod.gl_manager.draw_texture(self.surface, 0, 0, blend_mode='additive')
+    def draw(self, _surface):
+        import glm as pyglm
+        ctx = gl_mod.gl_manager.ctx
+        ctx.enable(moderngl.BLEND)
+        ctx.blend_func = moderngl.ONE, moderngl.ONE # True additive blending
+
+        self.mask_tex.use(0)
+        self.prog_light['u_mask'].value = 0
+        self.prog_light['u_time'].value = gl_mod.gl_manager.time
+        self.prog_light['u_color'].value = (210/255.0, 240/255.0, 255/255.0)
+        self.prog_light['u_proj'].write(gl_mod.gl_manager.projection)
+        
+        # Identity model matrix for full-screen quad
+        model = pyglm.mat4(1.0)
+        model = pyglm.scale(model, pyglm.vec3(self.width, self.height, 1))
+        self.prog_light['u_model'].write(model)
+        
+        self.vao_light.render()
+        
+        # Reset blend func
+        ctx.blend_func = moderngl.SRC_ALPHA, moderngl.ONE_MINUS_SRC_ALPHA

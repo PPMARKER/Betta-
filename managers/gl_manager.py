@@ -68,7 +68,6 @@ class GLManager:
             (self.quad_buffer, '2f 2f', 'in_vert', 'in_texcoord'),
         ], mode=moderngl.TRIANGLE_STRIP)
 
-        # Use pyglm and ensure floats for ortho
         self.projection = pyglm.ortho(0.0, float(SCREEN_WIDTH), float(SCREEN_HEIGHT), 0.0, -1.0, 1.0)
         self.textures = {}
         self.time = 0
@@ -86,11 +85,18 @@ class GLManager:
         self.textures[surface] = tex
         return tex
 
-    def draw_texture(self, surface, x, y, width=None, height=None, color=(1,1,1,1), angle=0, flip_x=False, flip_y=False, blend_mode='alpha'):
+    def draw_texture(self, surface, x, y, width=None, height=None, color=(1,1,1,1), angle=0, flip_x=False, flip_y=False, blend_mode='alpha', dynamic=False):
         tex = self.get_texture(surface)
 
-        rgb_data = pygame.image.tostring(surface, 'RGBA')
-        tex.write(rgb_data)
+        if dynamic:
+            rgb_data = pygame.image.tostring(surface, 'RGBA')
+            if surface.get_size() != (tex.width, tex.height):
+                tex.release()
+                tex = self.ctx.texture(surface.get_size(), 4, rgb_data)
+                tex.filter = (moderngl.LINEAR, moderngl.LINEAR)
+                self.textures[surface] = tex
+            else:
+                tex.write(rgb_data)
 
         if blend_mode == 'additive':
             self.ctx.blend_func = moderngl.SRC_ALPHA, moderngl.ONE
@@ -102,10 +108,10 @@ class GLManager:
 
     def draw_fish(self, surface, x, y, width, height, color=(1,1,1,1), angle=0, flip_x=False, speed=10.0, amplitude=0.08):
         tex = self.get_texture(surface)
-        self.prog_fish['u_time'].value = self.time
-        self.prog_fish['u_speed'].value = speed
-        self.prog_fish['u_amplitude'].value = amplitude
-        self.prog_fish['u_flip_x'].value = flip_x
+        if 'u_time' in self.prog_fish: self.prog_fish['u_time'].value = self.time
+        if 'u_speed' in self.prog_fish: self.prog_fish['u_speed'].value = speed
+        if 'u_amplitude' in self.prog_fish: self.prog_fish['u_amplitude'].value = amplitude
+        if 'u_flip_x' in self.prog_fish: self.prog_fish['u_flip_x'].value = flip_x
         self._render_quad(self.prog_fish, self.vao_fish, tex, x, y, width, height, color, angle, flip_x, False)
 
     def _render_quad(self, prog, vao, tex, x, y, width, height, color, angle, flip_x, flip_y):

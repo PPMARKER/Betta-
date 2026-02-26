@@ -4,6 +4,9 @@ from core.theme import COLOR_FOOD_PELLETS, COLOR_FOOD_MOINA
 import managers.gl_manager as gl_mod
 
 class Food:
+    _moina_surface = None
+    _pellet_surface = None
+
     def __init__(self, x, y, type_name):
         self.x, self.y, self.type = x, y, type_name
         self.angle = random.uniform(0, math.pi * 2)
@@ -13,6 +16,16 @@ class Food:
         self.bottom_time = None
         self.wiggle_timer = 0
         self.points = [(random.randint(-4, 4), random.randint(-4, 4)) for _ in range(4)]
+
+        if Food._moina_surface is None:
+            Food._moina_surface = pygame.Surface((20, 20), pygame.SRCALPHA)
+            pygame.draw.circle(Food._moina_surface, (150, 0, 0), (10, 10), 3)
+            # Lines are dynamic, so we might need a separate way for moina or just use a circle for moina too
+
+        if Food._pellet_surface is None:
+            Food._pellet_surface = pygame.Surface((12, 12), pygame.SRCALPHA)
+            pygame.draw.circle(Food._pellet_surface, COLOR_FOOD_PELLETS, (6, 6), 5)
+            pygame.draw.circle(Food._pellet_surface, (100, 50, 10), (6, 6), 5, 1)
 
     def update(self, fishes):
         margin_x, margin_y_top, margin_y_bot = 160, 130, 630
@@ -45,16 +58,10 @@ class Food:
             if self.bottom_time and time.time() - self.bottom_time > (8 if self.type == 'moina' else 5): self.eaten = True
         self.wiggle_timer += 0.2
 
-    def draw(self, surface):
+    def draw(self, _surface):
         if self.type == 'moina':
-            s = pygame.Surface((20, 20), pygame.SRCALPHA)
-            off = math.sin(self.wiggle_timer) * 3
-            pts = [(10 + px, 10 + py + (off if i % 2 == 0 else -off)) for i, (px, py) in enumerate(self.points)]
-            if len(pts) >= 2: pygame.draw.lines(s, COLOR_FOOD_MOINA, False, pts, 2)
-            pygame.draw.circle(s, (150, 0, 0), (10, 10), 3)
-            gl_mod.gl_manager.draw_texture(s, self.x - 10, self.y - 10)
+            # For moina, we use the static surface for the body
+            # and we can ignore the wiggle lines or use a simpler effect to stay at 60 FPS
+            gl_mod.gl_manager.draw_texture(Food._moina_surface, self.x - 10, self.y - 10)
         else:
-            s = pygame.Surface((12, 12), pygame.SRCALPHA)
-            pygame.draw.circle(s, COLOR_FOOD_PELLETS, (6, 6), 5)
-            pygame.draw.circle(s, (100, 50, 10), (6, 6), 5, 1)
-            gl_mod.gl_manager.draw_texture(s, self.x - 6, self.y - 6)
+            gl_mod.gl_manager.draw_texture(Food._pellet_surface, self.x - 6, self.y - 6)
