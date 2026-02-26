@@ -1,12 +1,13 @@
 import pygame, os, time
 from core.constants import SCREEN_WIDTH, SCREEN_HEIGHT, TRASH_RECT_COORDS, QUARANTINE_RECT_COORDS
-from core.theme import COLOR_DEEP_BLUE, COLOR_WHITE, COLOR_GOLD, COLOR_UI_BG, get_font
+from core.theme import COLOR_DEEP_BLUE, COLOR_OCEAN_BLUE, COLOR_WHITE, COLOR_GOLD, COLOR_UI_BG, get_font
 from core.game_state import game_state
 from managers.scene_manager import Scene; from managers.ui_manager import UIManager; from managers.asset_manager import assets
-from entities.fish import Fish; from entities.food import Food; from entities.decoration import Decoration
+from entities.fish import Fish; from entities.food import Food; from entities.decoration import Decoration; from managers.light_manager import LightManager
 class TankScene(Scene):
     def __init__(self):
         self.ui_manager = UIManager(on_decor_pickup=self.on_decor_pickup)
+        self.light_manager = LightManager()
         self.fishes, self.foods, self.decor_objects, self.dragging_fish, self.dragging_decor = [Fish(), Fish()], [], [], None, None
         self.trash_rect, self.quarantine_rect = pygame.Rect(*TRASH_RECT_COORDS), pygame.Rect(*QUARANTINE_RECT_COORDS)
         self.ui_manager.hud.add_button(150, 820, 120, 50, "SHOP", self.ui_manager.show_shop)
@@ -65,10 +66,11 @@ class TankScene(Scene):
         for f in self.foods: f.update(self.fishes)
         self.foods = [f for f in self.foods if not f.eaten]
         self.ui_manager.update()
+        self.light_manager.update()
     def draw(self, surface):
-        bg = assets.load_image(os.path.join("asset", "Tank", "Tank.png"), alpha=False)
+        surface.fill(COLOR_OCEAN_BLUE)
+        bg = assets.load_image(os.path.join("asset", "Tank", "Tank.png"), alpha=True)
         if bg: surface.blit(bg, (0,0))
-        else: surface.fill(COLOR_DEEP_BLUE)
         for o in self.decor_objects: o.draw(surface)
         if self.dragging_decor:
             self.dragging_decor.draw(surface)
@@ -81,6 +83,7 @@ class TankScene(Scene):
         pygame.draw.rect(surface, (80,80,80), self.trash_rect, border_radius=15)
         pygame.draw.rect(surface, (220,50,50), self.trash_rect, width=4, border_radius=15)
         surface.blit(get_font("Tahoma", 18, bold=True).render("TRASH", True, COLOR_WHITE), (self.trash_rect.x+18, self.trash_rect.y+40))
+        self.light_manager.draw(surface)
         self.ui_manager.draw(surface)
         if game_state.selected_slot != -1 and game_state.quick_items[game_state.selected_slot]:
             k = game_state.quick_items[game_state.selected_slot]
