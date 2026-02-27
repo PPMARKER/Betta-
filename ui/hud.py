@@ -24,8 +24,8 @@ class QuickSlot(UIComponent):
 class HUD(UIPanel):
     def __init__(self):
         super().__init__((0, 0, SCREEN_WIDTH, SCREEN_HEIGHT))
-        self.top_p = UIPanel((0, 0, SCREEN_WIDTH, 90), bg_color=COLOR_UI_BG); self.add_child(self.top_p)
-        self.bot_p = UIPanel((0, 780, SCREEN_WIDTH, 120), bg_color=COLOR_UI_BG); self.add_child(self.bot_p)
+        self.top_p = UIPanel((0, 0, SCREEN_WIDTH, 90), bg_color=(0,0,0,0)); self.add_child(self.top_p)
+        self.bot_p = UIPanel((0, 780, SCREEN_WIDTH, 120), bg_color=(0,0,0,0)); self.add_child(self.bot_p)
         self.gold_label = UILabel(820, 28, f"GOLD: {game_state.gold}G", size=28, color=COLOR_GOLD); self.top_p.add_child(self.gold_label)
         for i in range(3): self.bot_p.add_child(QuickSlot(i, 20 + i * 85, 15, 75, 75))
         game_state.events.subscribe("gold_changed", lambda g: self.gold_label.set_text(f"GOLD: {g}G"))

@@ -3,25 +3,29 @@ from core.constants import SCREEN_WIDTH, SCREEN_HEIGHT, TRASH_RECT_COORDS, QUARA
 from core.theme import COLOR_DEEP_BLUE, COLOR_OCEAN_BLUE, COLOR_WHITE, COLOR_GOLD, COLOR_UI_BG, get_font
 from core.game_state import game_state
 from managers.scene_manager import Scene; from managers.ui_manager import UIManager; from managers.asset_manager import assets
-from entities.fish import Fish; from entities.food import Food; from entities.decoration import Decoration; from managers.light_manager import LightManager
+from entities.fish import Fish; from entities.food import Food; from entities.decoration import Decoration; from managers.light_manager import LightManager; from entities.medicine_drop import MedicineDrop
 import managers.gl_manager as gl_mod
 
 class TankScene(Scene):
-    def __init__(self):
+    def __init__(self, scene_manager=None):
+        self.sm = scene_manager
         self.ui_manager = UIManager(on_decor_pickup=self.on_decor_pickup)
         self.light_manager = LightManager()
-        self.fishes, self.foods, self.decor_objects, self.dragging_fish, self.dragging_decor = [Fish(), Fish()], [], [], None, None
-        self.trash_rect, self.quarantine_rect = pygame.Rect(*TRASH_RECT_COORDS), pygame.Rect(*QUARANTINE_RECT_COORDS)
+        self.fishes, self.foods, self.decor_objects, self.dragging_fish, self.dragging_decor, self.med_drops = [Fish(gender="Male"), Fish(gender="Female")], [], [], None, None, []
+        self.trash_rect = pygame.Rect(*TRASH_RECT_COORDS)
         self.ui_manager.hud.add_button(150, 820, 120, 50, "SHOP", self.ui_manager.show_shop)
         self.ui_manager.hud.add_button(280, 820, 120, 50, "INVENTORY", self.ui_manager.show_inventory)
         self.ui_manager.hud.add_button(410, 820, 120, 50, "SPECIES", lambda: None)
         self.ui_manager.hud.add_button(20, 820, 120, 50, "MENU", lambda: None)
         self.ui_manager.hud.add_button(1050, 20, 120, 45, "More Tank", lambda: None, 'top')
         self.ui_manager.hud.add_button(1180, 20, 120, 45, "Sell Tank", lambda: None, 'top')
-        self.ui_manager.hud.add_button(1310, 20, 110, 45, "Breed", lambda: None, 'top')
+        self.ui_manager.hud.add_button(1310, 20, 110, 45, "Breed", self.go_breeding, 'top')
         
-        # Reuse UI surface to avoid memory leaks in GL texture cache
         self.ui_surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+
+    def go_breeding(self):
+        if hasattr(self, 'sm') and self.sm:
+            self.sm.change_scene(self.sm.breeding_scene)
 
     def on_decor_pickup(self, d): 
         self.dragging_decor = Decoration(pygame.mouse.get_pos()[0], pygame.mouse.get_pos()[1], d["img"], d["name"], scale=d.get("scale", 1.0), original_img=d.get("original_img", d["img"]))
@@ -37,8 +41,15 @@ class TankScene(Scene):
                     if d["qty"] > 0:
                         if it in ["food_p", "food_m"]: self.foods.append(Food(mp[0], mp[1], 'pellet' if it == "food_p" else 'moina')); d["qty"] -= 1
                         elif it == "med":
+                            treated = False
                             for f in self.fishes:
-                                if f.rect.collidepoint(mp) and f.is_sick and not f.is_dead and self.quarantine_rect.colliderect(f.rect): f.is_sick, f.in_quarantine, d["qty"] = False, False, d["qty"] - 1; break
+                                if f.is_sick and not f.is_dead and not f.is_treated:
+                                    f.is_treated = True
+                                    f.treatment_timer = time.time()
+                                    treated = True
+                            if treated:
+                                d["qty"] -= 1
+                                self.med_drops.append(MedicineDrop(mp[0], mp[1]))
                 else:
                     h = None
                     for f in reversed(self.fishes):
@@ -55,8 +66,16 @@ class TankScene(Scene):
         elif e.type == pygame.MOUSEBUTTONUP and e.button == 1 and self.dragging_fish:
             if self.dragging_fish.is_dead:
                 if self.trash_rect.collidepoint(mp): self.dragging_fish.to_be_removed = True
-            else: self.dragging_fish.in_quarantine = self.quarantine_rect.collidepoint(mp)
-            self.dragging_fish.is_dragging, self.dragging_fish = False, None
+            elif mp[0] > SCREEN_WIDTH - 200 and mp[1] < 100:
+                if hasattr(self, 'sm') and self.sm:
+                    self.dragging_fish.is_dragging = False
+                    self.dragging_fish.in_breeding_mode = True
+                    self.sm.breeding_scene.fishes.append(self.dragging_fish)
+                    self.fishes.remove(self.dragging_fish)
+                    self.dragging_fish = None
+                    return
+            if self.dragging_fish:
+                self.dragging_fish.is_dragging, self.dragging_fish = False, None
         elif e.type == pygame.KEYDOWN:
             if e.key in [pygame.K_1, pygame.K_2, pygame.K_3]: game_state.selected_slot = e.key - pygame.K_1
             if e.key == pygame.K_ESCAPE:
@@ -75,57 +94,34 @@ class TankScene(Scene):
         self.fishes = [f for f in self.fishes if not f.to_be_removed]
         for f in self.foods: f.update(self.fishes)
         self.foods = [f for f in self.foods if not f.eaten]
+        for m in self.med_drops: m.update()
+        self.med_drops = [m for m in self.med_drops if not m.done]
         self.ui_manager.update()
         self.light_manager.update()
 
     def draw(self, _surface):
-        # 0. Clear with background color to brighten the transparent tank
         gl_mod.gl_manager.clear((30/255, 144/255, 255/255, 1))
-
-        # 1. Background
         bg = assets.load_image(os.path.join("asset", "Tank", "Tank.png"), alpha=True)
         if bg: gl_mod.gl_manager.draw_texture(bg, 0, 0)
-        
-        # 2. Decorations
         for o in self.decor_objects: o.draw(None)
-        
-        # 3. Foods
         for f in self.foods: f.draw(None)
-        
-        # 4. Fishes
         for f in self.fishes: f.draw(None)
-        
-        # 5. Light (Additive blending for realism)
         self.light_manager.draw(None)
-        
-        # 5.5. Draw dragging decoration IN FRONT of everything (before UI)
-        if self.dragging_decor:
-            self.dragging_decor.draw(None)
-
-        # 6. UI (Rendered to a surface first)
+        if self.dragging_decor: self.dragging_decor.draw(None)
         self.ui_surf.fill((0, 0, 0, 0))
-        
-        # Scene specific UI
-        med = assets.load_image(os.path.join("asset", "Ui", "medic_tank.png"), scale=(300, 180))
-        if med: self.ui_surf.blit(med, self.quarantine_rect.topleft)
+        for m in self.med_drops: m.draw(self.ui_surf)
         pygame.draw.rect(self.ui_surf, (80,80,80), self.trash_rect, border_radius=15)
         pygame.draw.rect(self.ui_surf, (220,50,50), self.trash_rect, width=4, border_radius=15)
         self.ui_surf.blit(get_font("Tahoma", 18, bold=True).render("TRASH", True, COLOR_WHITE), (self.trash_rect.x+18, self.trash_rect.y+40))
-        
         if self.dragging_decor:
             t = get_font("Tahoma", 16, bold=True).render("Q/E to Scale, Click to Place", True, COLOR_WHITE)
             self.ui_surf.blit(t, (SCREEN_WIDTH//2-t.get_width()//2, 100))
-
         self.ui_manager.draw(self.ui_surf)
-        
         if game_state.selected_slot != -1 and game_state.quick_items[game_state.selected_slot]:
             k = game_state.quick_items[game_state.selected_slot]
             if game_state.inventory[k]["qty"] > 0:
                 mp = pygame.mouse.get_pos(); pygame.draw.circle(self.ui_surf, game_state.inventory[k]["color"], mp, 8); pygame.draw.circle(self.ui_surf, COLOR_WHITE, mp, 8, 2)
-        
         self.draw_fish_popups(self.ui_surf)
-        
-        # Draw the whole UI surface via GL
         gl_mod.gl_manager.draw_texture(self.ui_surf, 0, 0, dynamic=True)
 
     def draw_fish_popups(self, surface):
@@ -140,11 +136,13 @@ class TankScene(Scene):
             bg = pygame.Surface((pw, ph), pygame.SRCALPHA); pygame.draw.rect(bg, COLOR_UI_BG, (0, 0, pw, ph), border_radius=8); surface.blit(bg, pr.topleft)
             pygame.draw.rect(surface, COLOR_GOLD, pr, 2, border_radius=8)
             fs = get_font("Tahoma", 14, bold=True)
-            surface.blit(fs.render(f"Age: {h.age} Days", True, COLOR_WHITE), (pr.x+12, pr.y+12))
+            surface.blit(fs.render(f"Age: {h.age} Days ({h.gender})", True, COLOR_WHITE), (pr.x+12, pr.y+12))
             sc = (255, 50, 50) if h.is_sick else (50, 255, 50)
+            status_text = "SICK" if h.is_sick else "HEALTHY"
+            if h.is_treated: status_text = "RECOVERING"
             st = fs.render("HEALTH: ", True, COLOR_WHITE)
             surface.blit(st, (pr.x+12, pr.y+36))
-            surface.blit(fs.render("SICK" if h.is_sick else "HEALTHY", True, sc), (pr.x+12+st.get_width(), pr.y+36))
+            surface.blit(fs.render(status_text, True, sc), (pr.x+12+st.get_width(), pr.y+36))
             surface.blit(fs.render("HP:", True, COLOR_WHITE), (pr.x+12, pr.y+66))
             pygame.draw.rect(surface, (80, 0, 0), (pr.x+85, pr.y+69, 100, 10))
             pygame.draw.rect(surface, (0, 255, 0), (pr.x+85, pr.y+69, 100*(h.health/100), 10))
