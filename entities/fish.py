@@ -17,7 +17,7 @@ class Fish:
         self.is_treated = False
         self.treatment_timer = 0
 
-        self.growth_scale = 0.6
+        self.growth_scale = 0.2 + (self.age * 0.08)
         self.update_size()
         self.bob_timer, self.is_dragging, self.is_sick, self.is_dead, self.to_be_removed = random.uniform(0, 100), False, False, False, False
         self.in_breeding_mode = False # To be used in Breeding Scene
