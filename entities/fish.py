@@ -46,7 +46,7 @@ class Fish:
 
         # Medicine logic
         if self.is_sick and self.is_treated:
-            if now - self.treatment_timer > 10:
+            if now - self.treatment_timer > 40:
                 self.is_sick = False
                 self.is_treated = False
 
@@ -79,7 +79,7 @@ class Fish:
             self.rect.topleft = (self.x, self.y)
             return
 
-        t_angle, cur_speed, ax, ay = self.angle, self.max_speed, 0, 0
+        t_angle, cur_speed, ax, ay = self.angle, self.max_speed - 0.5, 0, 0
         if self.is_sick: cur_speed *= 0.4
 
         # Boundaries

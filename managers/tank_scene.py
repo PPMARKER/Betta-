@@ -13,19 +13,36 @@ class TankScene(Scene):
         self.light_manager = LightManager()
         self.fishes, self.foods, self.decor_objects, self.dragging_fish, self.dragging_decor, self.med_drops = [Fish(gender="Male"), Fish(gender="Female")], [], [], None, None, []
         self.trash_rect = pygame.Rect(*TRASH_RECT_COORDS)
+
         self.ui_manager.hud.add_button(150, 820, 120, 50, "SHOP", self.ui_manager.show_shop)
         self.ui_manager.hud.add_button(280, 820, 120, 50, "INVENTORY", self.ui_manager.show_inventory)
         self.ui_manager.hud.add_button(410, 820, 120, 50, "SPECIES", lambda: None)
         self.ui_manager.hud.add_button(20, 820, 120, 50, "MENU", lambda: None)
-        self.ui_manager.hud.add_button(1050, 20, 120, 45, "More Tank", lambda: None, 'top')
-        self.ui_manager.hud.add_button(1180, 20, 120, 45, "Sell Tank", lambda: None, 'top')
-        self.ui_manager.hud.add_button(1310, 20, 110, 45, "Breed", self.go_breeding, 'top')
         
+        self.btn_more = self.ui_manager.hud.add_button(1050, 20, 120, 45, "More Tank", self.toggle_more, 'top')
+        self.btn_sell = self.ui_manager.hud.add_button(1180, 20, 120, 45, "Sell Tank", lambda: None, 'top')
+        self.btn_breed_nav = self.ui_manager.hud.add_button(1310, 20, 110, 45, "Breed", self.go_breeding, 'top')
+
+        self.btn_tank_switch = self.ui_manager.hud.add_button(1050, 75, 120, 45, "Breeding", self.go_breeding, 'top')
+        self.btn_tank_switch.visible = False
+
         self.ui_surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
 
+    def toggle_more(self):
+        self.btn_tank_switch.visible = not self.btn_tank_switch.visible
+        from managers.breeding_scene import BreedingScene
+        if isinstance(self, BreedingScene):
+            self.btn_tank_switch.text = "Tank 1"
+        else:
+            self.btn_tank_switch.text = "Breeding"
+
     def go_breeding(self):
+        from managers.breeding_scene import BreedingScene
         if hasattr(self, 'sm') and self.sm:
-            self.sm.change_scene(self.sm.breeding_scene)
+            if isinstance(self, BreedingScene):
+                self.sm.change_scene(self.sm.tank_scene)
+            else:
+                self.sm.change_scene(self.sm.breeding_scene)
 
     def on_decor_pickup(self, d): 
         self.dragging_decor = Decoration(pygame.mouse.get_pos()[0], pygame.mouse.get_pos()[1], d["img"], d["name"], scale=d.get("scale", 1.0), original_img=d.get("original_img", d["img"]))
@@ -44,9 +61,7 @@ class TankScene(Scene):
                             treated = False
                             for f in self.fishes:
                                 if f.is_sick and not f.is_dead and not f.is_treated:
-                                    f.is_treated = True
-                                    f.treatment_timer = time.time()
-                                    treated = True
+                                    f.is_treated, f.treatment_timer, treated = True, time.time(), True
                             if treated:
                                 d["qty"] -= 1
                                 self.med_drops.append(MedicineDrop(mp[0], mp[1]))
@@ -67,13 +82,14 @@ class TankScene(Scene):
             if self.dragging_fish.is_dead:
                 if self.trash_rect.collidepoint(mp): self.dragging_fish.to_be_removed = True
             elif mp[0] > SCREEN_WIDTH - 200 and mp[1] < 100:
+                from managers.breeding_scene import BreedingScene
                 if hasattr(self, 'sm') and self.sm:
-                    self.dragging_fish.is_dragging = False
-                    self.dragging_fish.in_breeding_mode = True
-                    self.sm.breeding_scene.fishes.append(self.dragging_fish)
-                    self.fishes.remove(self.dragging_fish)
-                    self.dragging_fish = None
-                    return
+                    if not isinstance(self, BreedingScene):
+                        self.dragging_fish.is_dragging = False
+                        self.sm.breeding_scene.fishes.append(self.dragging_fish)
+                        self.fishes.remove(self.dragging_fish)
+                        self.dragging_fish = None
+                        return
             if self.dragging_fish:
                 self.dragging_fish.is_dragging, self.dragging_fish = False, None
         elif e.type == pygame.KEYDOWN:
