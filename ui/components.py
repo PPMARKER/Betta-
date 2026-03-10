@@ -29,8 +29,16 @@ class UIButton(UIComponent):
         return False
     def draw(self, surface):
         if not self.visible: return
-        c = COLOR_BTN_HOVER if self.is_hovered else self.color
-        pygame.draw.rect(surface, c, self.rect, border_radius=10)
-        pygame.draw.rect(surface, COLOR_WHITE, self.rect, width=2, border_radius=10)
-        t = get_font("Tahoma", 18, bold=True).render(self.text, True, COLOR_WHITE)
+        c_bg = (70, 120, 220) if self.is_hovered else (50, 90, 160)
+        c_border = (255, 255, 255) if self.is_hovered else (180, 180, 180)
+
+        # Outer Glow
+        if self.is_hovered:
+            for i in range(1, 4):
+                pygame.draw.rect(surface, (255, 255, 255, 20), (self.rect.x-i, self.rect.y-i, self.rect.width+i*2, self.rect.height+i*2), border_radius=15+i)
+
+        pygame.draw.rect(surface, c_bg, self.rect, border_radius=15)
+        pygame.draw.rect(surface, c_border, self.rect, width=2, border_radius=15)
+
+        t = get_font("Tahoma", 14, bold=True).render(self.text, True, (255, 255, 255))
         surface.blit(t, t.get_rect(center=self.rect.center))
